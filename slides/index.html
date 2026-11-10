@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OTセキュリティ入門 — 前半スライド</title>
+<style>
+  /* オフライン前提: 外部フォント/スクリプトは一切使わない。ダーク工業テーマ。 */
+  :root{
+    --bg:#0a0e14; --panel:#121823; --fg:#e6eef7; --muted:#8ea0b6;
+    --accent:#19d3ff; --ok:#19ff95; --warn:#ffb020; --danger:#ff3b5c;
+    --edge:rgba(130,165,200,.18);
+    --jp:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--jp);
+    -webkit-font-smoothing:antialiased;overflow:hidden}
+  #deck{height:100%;display:flex;align-items:center;justify-content:center}
+  .slide{display:none;width:min(1000px,92vw);max-height:92vh;overflow:auto;
+    padding:clamp(20px,4vw,48px)}
+  .slide.active{display:block}
+  .eyebrow{font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);
+    font-weight:700;margin:0 0 14px}
+  h1{font-size:clamp(28px,5.5vw,52px);line-height:1.15;margin:0 0 18px;text-wrap:balance;font-weight:800}
+  h2{font-size:clamp(23px,4.2vw,38px);line-height:1.2;margin:0 0 20px;text-wrap:balance;font-weight:800}
+  p,li{font-size:clamp(16px,2.2vw,21px);line-height:1.6}
+  .lead{color:var(--fg);font-size:clamp(18px,2.6vw,25px)}
+  .muted{color:var(--muted)}
+  ul{margin:14px 0;padding-left:1.2em}
+  li{margin:10px 0}
+  strong{color:#fff}
+  .accent{color:var(--accent)} .ok{color:var(--ok)} .warn{color:var(--warn)} .danger{color:var(--danger)}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;
+    padding:18px 20px;margin:12px 0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:640px){.grid,.grid3{grid-template-columns:1fr}}
+  .big{font-size:clamp(20px,3vw,26px);font-weight:800}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  .step{background:var(--panel);border:1px solid var(--edge);border-radius:999px;
+    padding:8px 14px;font-weight:700;font-size:clamp(14px,1.9vw,18px)}
+  .step.win{border-color:var(--danger);color:#ffb3c1}
+  .arrow{color:var(--muted)}
+  .kv{display:flex;gap:14px;margin:8px 0}
+  .kv .k{min-width:160px;color:var(--muted)}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:14px;font-weight:700;
+    background:rgba(25,211,255,.14);color:var(--accent)}
+  svg{max-width:100%;height:auto;display:block;margin:10px 0}
+  /* 進行バー・番号 */
+  #bar{position:fixed;left:0;top:0;height:3px;background:var(--accent);width:0;transition:width .2s;z-index:10}
+  #hud{position:fixed;right:16px;bottom:12px;color:var(--muted);font-size:13px;
+    font-variant-numeric:tabular-nums;z-index:10}
+  #hint{position:fixed;left:16px;bottom:12px;color:var(--muted);font-size:12px;z-index:10}
+  .note{font-size:14px;color:var(--muted);margin-top:14px}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="deck">
+
+  <!-- 1 タイトル -->
+  <section class="slide active">
+    <p class="eyebrow">OTセキュリティ入門ハンズオン</p>
+    <h1>産業用通信 <span class="accent">Modbus</span> で<br>制御装置を乗っ取る</h1>
+    <p class="lead muted">認証のない制御通信を使って、水のタンクを<strong>実際にあふれさせる</strong>までを体験します。</p>
+    <p class="note">前半 10分 基礎説明 ／ 後半 50分 演習（CTF形式）。進む: →／Space、戻る: ←</p>
+  </section>
+
+  <!-- 2 ゴール（結論先頭） -->
+  <section class="slide">
+    <p class="eyebrow">今日のゴール</p>
+    <h2>攻撃を自分の手で体験し、<br><span class="accent">なぜ防げないのか</span>を理解する</h2>
+    <div class="card">
+      <p class="big">やること: 認証のない産業用通信を使って、タンクを<span class="danger">あふれさせる</span>。</p>
+    </div>
+    <ul>
+      <li>攻撃対象は、<strong>貯液タンクの水位を自動制御する制御装置（PLC）</strong>（シミュレータ）。</li>
+      <li>設計図（どの番号が何か）は<strong>渡しません</strong>。読み書きしながら自分で解き明かします。</li>
+      <li>最後に「どう防ぐか」をみんなで考えます。</li>
+    </ul>
+  </section>
+
+  <!-- 3 制御の仕組み -->
+  <section class="slide">
+    <p class="eyebrow">まず、制御の仕組み</p>
+    <h2>制御装置（PLC）がタンクの水位を自動で保つ</h2>
+    <svg viewBox="0 0 640 230" role="img" aria-label="制御ループの図">
+      <rect x="20" y="40" width="150" height="150" rx="10" fill="#121823" stroke="#19d3ff"/>
+      <text x="95" y="30" fill="#8ea0b6" font-size="14" text-anchor="middle">タンク</text>
+      <rect x="35" y="110" width="120" height="70" fill="#1769c8" opacity="0.8"/>
+      <text x="95" y="150" fill="#e6eef7" font-size="13" text-anchor="middle">水位</text>
+      <rect x="260" y="80" width="150" height="70" rx="10" fill="#121823" stroke="#19d3ff"/>
+      <text x="335" y="120" fill="#e6eef7" font-size="15" text-anchor="middle" font-weight="bold">制御装置</text>
+      <text x="335" y="140" fill="#8ea0b6" font-size="12" text-anchor="middle">(PLC)</text>
+      <rect x="500" y="80" width="120" height="70" rx="10" fill="#121823" stroke="#19d3ff"/>
+      <text x="560" y="118" fill="#e6eef7" font-size="14" text-anchor="middle">給水ポンプ</text>
+      <line x1="170" y1="115" x2="258" y2="115" stroke="#8ea0b6" stroke-width="2"/>
+      <text x="214" y="105" fill="#8ea0b6" font-size="12" text-anchor="middle">水位を読む</text>
+      <line x1="410" y1="115" x2="498" y2="115" stroke="#8ea0b6" stroke-width="2"/>
+      <text x="454" y="105" fill="#8ea0b6" font-size="12" text-anchor="middle">オン/オフ</text>
+    </svg>
+    <ul>
+      <li><strong>停止水位</strong>に達したらポンプを止め、<strong>低い水位</strong>で動かす。</li>
+      <li>さらに、危険域で強制停止する <strong>安全インターロック</strong> という最後の砦がある。</li>
+    </ul>
+  </section>
+
+  <!-- 4 Modbusとは -->
+  <section class="slide">
+    <p class="eyebrow">通信のことば</p>
+    <h2>Modbus — 産業機器の事実上の標準プロトコル</h2>
+    <div class="grid">
+      <div class="card">
+        <p><strong>データの持ち方</strong></p>
+        <p class="muted">コイル = オン/オフの1ビット（例: ポンプ）<br>
+          レジスタ = 16ビットの数値（例: 水位・設定値）</p>
+      </div>
+      <div class="card">
+        <p><strong>通信の形</strong></p>
+        <p class="muted">依頼する側が「何番を読め/書け」と送り、機器が答える。<br>
+          Modbus/TCP の標準ポートは 502（今回は <span class="accent">5020</span>）。</p>
+      </div>
+    </div>
+    <p class="note">番号付きの「記憶の棚」を読み書きするだけ、とイメージしてください。</p>
+  </section>
+
+  <!-- 5 3つの欠陥 -->
+  <section class="slide">
+    <p class="eyebrow">ここが弱点</p>
+    <h2>Modbus には<span class="danger">3つの構造的な欠陥</span>がある</h2>
+    <div class="grid3">
+      <div class="card"><p class="big danger">認証なし</p><p class="muted">相手が誰かを確かめない。到達できれば誰でも書ける。</p></div>
+      <div class="card"><p class="big danger">暗号化なし</p><p class="muted">通信は平文。覗けば値も命令も丸見え。</p></div>
+      <div class="card"><p class="big danger">改ざん検知なし</p><p class="muted">正しい命令かを検証しない。偽の命令も実行する。</p></div>
+    </div>
+    <p class="lead" style="margin-top:18px">つまり、<strong>ネットワークに入れた時点で、制御を好きに書き換えられる。</strong></p>
+  </section>
+
+  <!-- 6 欠陥→被害 -->
+  <section class="slide">
+    <p class="eyebrow">欠陥が何を招くか</p>
+    <h2>読める・書ける・落とせる</h2>
+    <div class="kv"><div class="k"><span class="pill">読める</span></div><div><strong>盗聴・偵察</strong> — 水位も設定値も丸見え。工場の中身を把握される。</div></div>
+    <div class="kv"><div class="k"><span class="pill">書ける</span></div><div><strong>改ざん</strong> — 設定値を書き換え、安全装置を無効化 → <span class="danger">物理被害（溢水）</span>。</div></div>
+    <div class="kv"><div class="k"><span class="pill">落とせる</span></div><div><strong>妨害</strong> — 不正な値や大量接続で動作を乱す。</div></div>
+    <p class="note">情報セキュリティの3要素（機密・完全性・可用性）が、そのまま崩れます。</p>
+  </section>
+
+  <!-- 7 今日の流れ -->
+  <section class="slide">
+    <p class="eyebrow">演習の流れ（CTF形式）</p>
+    <h2>偵察から始め、最後はタンクをあふれさせる</h2>
+    <div class="flow">
+      <span class="step">1 偵察</span><span class="arrow">→</span>
+      <span class="step">2 盗聴</span><span class="arrow">→</span>
+      <span class="step">3 ポンプ奪取</span><span class="arrow">→</span>
+      <span class="step">4 設定改ざん</span><span class="arrow">→</span>
+      <span class="step">5 安全無効化</span><span class="arrow">→</span>
+      <span class="step win">6 溢水（優勝）</span>
+    </div>
+    <ul>
+      <li>攻撃に成功すると、制御装置が<strong>フラグ</strong>をレジスタに出します。読み出して提出。</li>
+      <li>設計図は渡しません。<strong>観測して自分で当てる</strong>のがこの演習の面白さです。</li>
+    </ul>
+  </section>
+
+  <!-- 8 ルール -->
+  <section class="slide">
+    <p class="eyebrow">始める前に</p>
+    <h2>ルールと安全</h2>
+    <div class="card"><p class="big warn">本編は AI 禁止</p><p class="muted">レジスタの意味を推定してあふれさせる部分は、自分で読み解くのが目的。
+      Wireshark の使い方や Modbus 全般の調べ物に AI を使うのは可。</p></div>
+    <ul>
+      <li>詰まったら遠慮なく<strong>司会にヒント</strong>を求めてください。</li>
+      <li>これは<strong>隔離されたネットワーク専用</strong>の演習。渡された制御装置以外には接続しません。</li>
+    </ul>
+  </section>
+
+  <!-- 9 開始 -->
+  <section class="slide">
+    <p class="eyebrow">さあ、始めましょう</p>
+    <h2>接続して、制御装置を読んでみる</h2>
+    <div class="grid">
+      <div class="card"><p><strong>問題とフラグ提出（CTFd）</strong></p><p class="accent">http://&lt;司会のIP&gt;:8000</p></div>
+      <div class="card"><p><strong>制御装置（攻撃対象）</strong></p><p class="accent">&lt;司会のIP&gt;:5020</p></div>
+    </div>
+    <p class="lead" style="margin-top:16px">配布キットの <strong>mbclient.py</strong> で、まずは保持レジスタを読んでみましょう。</p>
+    <p class="muted" style="margin-top:6px"><code>python3 mbclient.py --host &lt;IP&gt; read-hr 0 30</code></p>
+  </section>
+
+</div>
+
+<div id="bar"></div>
+<div id="hud"></div>
+<div id="hint" class="muted">← → / Space でめくる</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var i = 0;
+  var bar = document.getElementById('bar');
+  var hud = document.getElementById('hud');
+  function show(n){
+    i = Math.max(0, Math.min(slides.length-1, n));
+    slides.forEach(function(s,k){ s.classList.toggle('active', k===i); });
+    bar.style.width = ((i)/(slides.length-1)*100) + '%';
+    hud.textContent = (i+1) + ' / ' + slides.length;
+    try{ location.hash = 's' + (i+1); }catch(e){}
+  }
+  function next(){ show(i+1); }
+  function prev(){ show(i-1); }
+  document.addEventListener('keydown', function(e){
+    if(e.key==='ArrowRight' || e.key===' ' || e.key==='PageDown'){ e.preventDefault(); next(); }
+    else if(e.key==='ArrowLeft' || e.key==='PageUp'){ e.preventDefault(); prev(); }
+    else if(e.key==='Home'){ show(0); } else if(e.key==='End'){ show(slides.length-1); }
+  });
+  document.getElementById('deck').addEventListener('click', function(e){
+    // 右半分クリックで次、左半分で前
+    if(e.clientX > window.innerWidth/2){ next(); } else { prev(); }
+  });
+  var m = (location.hash.match(/^#s(\d+)$/));
+  show(m ? parseInt(m[1],10)-1 : 0);
+})();
+</script>
+</body>
+</html>
