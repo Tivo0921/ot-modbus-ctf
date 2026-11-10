@@ -76,7 +76,7 @@ def main():
             ok &= got == want
             print(f"[flag] {name:9s} @ {base}: {got}  {status}")
 
-        # --- 溢水まで待ち、優勝フラグを読む ---
+        # --- 溢水まで待ち、目的達成のフラグを読む ---
         win = ""; t0 = time.time()
         while time.time() - t0 < 8:
             over = c.read_coils(7, 1)[0]
@@ -87,7 +87,7 @@ def main():
         status = "OK" if win == exp else f"NG(得:{win!r})"
         ok &= win == exp
         lvl = c.read_holding(10,1)[0]/10
-        print(f"[WIN ] 溢水={c.read_coils(7,1)[0]} 水位={lvl:.1f}% 優勝フラグ: {win}  {status}")
+        print(f"[最終] 溢水={c.read_coils(7,1)[0]} 水位={lvl:.1f}% 目的達成フラグ: {win}  {status}")
 
         # --- ボーナス: 手がかり(70番台)を読み→魔法値を書く→バックドアフラグ ---
         crumb = regs_to_ascii(c.read_holding(70, 12))

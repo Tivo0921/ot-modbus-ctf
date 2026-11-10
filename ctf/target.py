@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OT-CTF 制御装置サーバ: 認証なし Modbus/TCP の貯液タンク（あふれさせたら勝ち）.
+"""OT-CTF 制御装置サーバ: 認証なし Modbus/TCP の貯液タンク（あふれさせれば目的達成）.
 
 !!! 教育目的・隔離環境専用 !!!
 これは OT セキュリティ・ワークショップで攻撃対象にする制御装置である。実機・実インフラ・
@@ -70,7 +70,7 @@ FLAG_SLOTS = {
     "pump":     100,   # 100-119
     "setpoint": 120,   # 120-139
     "safety":   140,   # 140-159
-    "overflow": 160,   # 160-199  ← 優勝フラグ
+    "overflow": 160,   # 160-199  ← 目的達成のフラグ（最終）
     "backdoor": 200,   # 200-219  ← ボーナス
 }
 FLAGS = {
@@ -304,7 +304,7 @@ def serve(host: str, port: int, interval: float) -> None:
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind((host, port)); srv.listen(16)
     print(f"[制御装置] Modbus/TCP {host}:{port} で待受開始（CTF・隔離ラボ専用）")
-    print("[制御装置] 参加者は設計図を知らない。観測して当て、タンクをあふれさせたら勝ち。")
+    print("[制御装置] 参加者は設計図を知らない。観測して当て、タンクをあふれさせれば目的達成。")
     print("[制御装置] Ctrl+C で停止\n")
     try:
         while True:
