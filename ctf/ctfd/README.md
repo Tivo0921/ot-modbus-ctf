@@ -33,13 +33,23 @@ docker compose down           # 片付け（データは ./ctfd-data に残る�
 
 初期セットアップ画面で「大会名」「管理者アカウント」を作る。終わったら管理画面へ。
 
-## 3. チャレンジ登録
+## 3. チャレンジ登録（自動／手動）
 
-`challenges.md` の 6 問を管理画面 **Admin > Challenges > + Create** から手入力する
-（説明・フラグ・ヒント2段・前提をそのまま）。所要 15 分ほど。
+**自動（推奨）**: 初期セットアップ〜問題・フラグ・チェーンヒント登録まで一括。
+CTFd を `up -d` した直後（**まだ /setup していない状態**）に:
 
-> 速くやるなら ctfcli（`pip install ctfcli`）で challenge.yml を流し込む手もあるが、
-> 6問なら手入力が確実。
+```bash
+python3 import_challenges.py          # --url http://localhost:8000 が既定
+# 管理者 admin / otctf-admin、全7問（6本編＋ボーナス）を全表示・ロックなしで登録
+```
+
+作り直すとき: `docker compose down && rm -rf ctfd-data && docker compose up -d` の後に再実行。
+
+**手動**: `challenges.md` の各問を **Admin > Challenges > + Create** から入力（説明・フラグ・
+ヒント4段）。自動登録が使えないときの保険。
+
+> 登録済みの内容は `http://localhost:8000` を開けば参加者視点で確認できる。
+> ヒントは段内チェーン（H1開くとH2…）、問題間の前提ロックは無し（番号＋司会で順序担保）。
 
 ## 4. 協力・公演モードの設定
 
