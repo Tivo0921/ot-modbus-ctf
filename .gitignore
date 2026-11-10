@@ -3,3 +3,4 @@ ctf/ctfd/ctfd-data/
 __pycache__/
 *.pyc
 ctf/takehome/project.cfg
+slides/node_modules/

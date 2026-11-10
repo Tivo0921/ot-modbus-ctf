@@ -18,6 +18,8 @@ OTセキュリティ研究会 第1回ワークショップの**代替案**。物
 | `ctf/selftest.py` | 制御装置サーバの自己テスト（攻撃→フラグ読み出し→溢水まで検証） |
 | `ctf/ctfd/` | CTFd（docker compose）＋ 問題一覧 ＋ 運用手順 |
 | `ctf/takehome/` | 持ち帰り課題（制御プロジェクトを壊すとフラグが出る・JRU不要・自己完結） |
+| `slides/ot-intro.pptx` | 前半10分の説明資料（図入りPowerPoint）。生成元は `slides/build_slides.js` |
+| `slides/index.html` | 同じ内容のオフラインHTML版（外部依存なし・ブラウザで即表示できる予備） |
 | `demo/index.html` | 溢水を見せる3Dビジュアル（Three.js・1ファイル。本物の通信値での駆動は今後） |
 | `docs/design.md` | 全体設計メモ（当日の体験・攻撃シナリオ・将来のJRU連携） |
 
