@@ -1,0 +1,532 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>溢水デモ 3D</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap">
+<style>
+  /* Layout: full-bleed 3D canvas with a floating control rail (bottom) and caption band (top). Single dark industrial world. */
+  :root{
+    --bg:#070a0f; --panel:rgba(11,17,27,.80); --edge:rgba(120,160,200,.18);
+    --fg:#dce6f2; --muted:#8395aa; --accent:#19d3ff;
+    --water:#2aa6ff; --danger:#ff2e4d; --ok:#19ff95; --warn:#ffb020;
+    color-scheme:dark;
+    --jp:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+    --disp:"Space Grotesk",var(--jp); --body:"Inter",var(--jp);
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden;
+    -webkit-font-smoothing:antialiased;}
+  #app{position:fixed;inset:0}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* caption band */
+  #phase{position:fixed;top:0;left:0;right:0;z-index:20;
+    padding-top:calc(16px + env(safe-area-inset-top,0px));
+    padding-left:max(16px,env(safe-area-inset-left,0px));
+    padding-right:max(16px,env(safe-area-inset-right,0px));
+    pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+  #chapter{font-family:var(--disp);font-weight:700;letter-spacing:.35em;font-size:12px;
+    color:var(--accent);text-transform:uppercase}
+  #caption{font-family:var(--disp);font-weight:700;font-size:clamp(17px,3.4vw,26px);
+    text-wrap:balance;max-width:720px;line-height:1.3;
+    text-shadow:0 2px 18px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9)}
+  #subcap{font-size:13px;color:var(--muted);max-width:560px;text-wrap:balance}
+
+  /* HUD stats top-right */
+  #hud{position:fixed;top:0;right:0;z-index:15;
+    margin-top:calc(14px + env(safe-area-inset-top,0px));
+    margin-right:max(14px,env(safe-area-inset-right,0px));
+    background:var(--panel);border:1px solid var(--edge);border-radius:12px;
+    backdrop-filter:blur(8px);padding:12px 14px;min-width:168px;
+    font-variant-numeric:tabular-nums;font-size:12px}
+  #hud h4{margin:0 0 8px;font-family:var(--disp);font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--muted);font-weight:600}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+  .row span:first-child{color:var(--muted)}
+  .val{font-weight:600}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600}
+  .p-ok{background:rgba(25,255,149,.14);color:var(--ok)}
+  .p-off{background:rgba(131,149,170,.16);color:var(--muted)}
+  .p-bad{background:rgba(255,46,77,.16);color:var(--danger)}
+  .p-warn{background:rgba(255,176,32,.16);color:var(--warn)}
+
+  /* control rail */
+  #rail{position:fixed;left:0;right:0;bottom:0;z-index:20;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+    padding-left:max(16px,env(safe-area-inset-left,0px));
+    padding-right:max(16px,env(safe-area-inset-right,0px));
+    display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  button{font-family:var(--disp);font-weight:600;font-size:14px;cursor:pointer;
+    border-radius:11px;padding:11px 18px;border:1px solid var(--edge);
+    background:var(--panel);color:var(--fg);backdrop-filter:blur(8px);
+    transition:transform .08s ease,border-color .15s,background .15s}
+  button:hover{transform:translateY(-1px);border-color:rgba(120,160,200,.4)}
+  button:active{transform:translateY(0)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button:disabled{opacity:.4;cursor:default;transform:none}
+  #play{background:linear-gradient(180deg,#1aa6cc,#127a98);border-color:transparent;color:#eafaff}
+  #attack{border-color:rgba(255,46,77,.45);color:#ff8095}
+  #attack:hover{background:rgba(255,46,77,.12)}
+  #restore{border-color:rgba(25,255,149,.4);color:#8affc9}
+  #restore:hover{background:rgba(25,255,149,.1)}
+  .hint{position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(70px + env(safe-area-inset-bottom,0px));z-index:14;
+    font-size:11px;color:var(--muted);pointer-events:none;opacity:.7}
+  @media (max-width:480px){#hud{min-width:0;font-size:11px}#caption{font-size:18px}}
+</style>
+
+<div id="app"></div>
+
+<div id="phase">
+  <div id="chapter">起 · 正常運転</div>
+  <div id="caption">PLCが水位を自動制御しています</div>
+  <div id="subcap">ドラッグで視点回転。実物理シミュレーション（ws01）と同じ制御ロジックで動いています</div>
+</div>
+
+<div id="hud">
+  <h4>タンク状態</h4>
+  <div class="row"><span>水位</span><span class="val" id="h-level">30.0%</span></div>
+  <div class="row"><span>停止水位SP</span><span class="val" id="h-hi">80.0%</span></div>
+  <div class="row"><span>給水ポンプ</span><span id="h-pump"><span class="pill p-off">停止</span></span></div>
+  <div class="row"><span>安全IL</span><span id="h-safety"><span class="pill p-ok">有効</span></span></div>
+  <div class="row"><span>EWS</span><span id="h-ews"><span class="pill p-ok">正常</span></span></div>
+</div>
+
+<div class="hint">▶ デモ自動再生で起承転結を一気に</div>
+
+<div id="rail">
+  <button id="play">▶ デモ自動再生</button>
+  <button id="attack">攻撃実行</button>
+  <button id="restore" disabled>JRUで復旧</button>
+  <button id="reset">リセット</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+if(!window.THREE){document.getElementById('caption').textContent='3Dライブラリの読み込みに失敗しました';return;}
+const T=THREE;
+const prefersReduce=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+/* ---------------- physics (ws01/simulator/plc.py と同一ロジック, 単位=%) ---------------- */
+const DEF={setHi:80,setLo:20,hh:95,inflow:1.5,outflow:0.8};
+const S={
+  level:30, setHi:DEF.setHi, setLo:DEF.setLo, hh:DEF.hh,
+  inflow:DEF.inflow, outflow:DEF.outflow,
+  pump:false, safety:true, overflow:false,
+  ews:'normal',            // normal | encrypted | restoring | restored
+  restore:0,               // 0..1
+  attacked:false,
+};
+function controlLogic(){
+  if(S.safety && S.level>=S.hh) S.pump=false;
+  else if(S.level>=S.setHi)     S.pump=false;
+  else if(S.level<=S.setLo)     S.pump=true;
+}
+function physicsStep(){
+  const delta=(S.pump?S.inflow:0)-S.outflow;
+  S.level=Math.max(0,Math.min(100,S.level+delta));
+  if(S.level>=100) S.overflow=true;         // latch
+}
+const SCAN_MS=120; let lastScan=0;
+function scan(){ controlLogic(); physicsStep(); }
+
+function doAttack(){
+  if(S.attacked) return;
+  S.attacked=true; S.safety=false; S.setHi=99999;   // 停止条件を到達不能に改ざん
+  S.ews='encrypted';
+  elAttack.disabled=true; elRestore.disabled=false;
+}
+function doRestore(){
+  if(!S.attacked || S.ews==='restoring' || S.ews==='restored') return;
+  S.ews='restoring'; S.restore=0; elRestore.disabled=true;
+}
+function finishRestore(){
+  // JRUがEWSを基準状態へ復元 → 正しい制御ロジックを再投入
+  S.safety=true; S.setHi=DEF.setHi; S.setLo=DEF.setLo; S.hh=DEF.hh;
+  S.overflow=false; S.ews='restored'; S.attacked=false;
+  elAttack.disabled=false;
+}
+function resetAll(){
+  Object.assign(S,{level:30,setHi:DEF.setHi,setLo:DEF.setLo,hh:DEF.hh,
+    inflow:DEF.inflow,outflow:DEF.outflow,pump:false,safety:true,
+    overflow:false,ews:'normal',restore:0,attacked:false});
+  drops.reset(); puddle.scale.set(0.001,0.001,0.001);
+  elAttack.disabled=false; elRestore.disabled=true;
+  stopStory();
+  setPhase('起 · 正常運転','PLCが水位を自動制御しています',
+    'ドラッグで視点回転。実物理シミュレーション（ws01）と同じ制御ロジックで動いています');
+}
+
+/* ---------------- scene ---------------- */
+const app=document.getElementById('app');
+const renderer=new T.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.outputEncoding=T.sRGBEncoding;
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=T.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const scene=new T.Scene();
+scene.background=new T.Color(0x070a0f);
+scene.fog=new T.Fog(0x070a0f,16,46);
+
+const camera=new T.PerspectiveCamera(46,1,0.1,200);
+
+/* lights */
+const amb=new T.AmbientLight(0x3b4a63,0.8); scene.add(amb);
+const key=new T.DirectionalLight(0xbfdcff,1.15); key.position.set(6,12,7);
+key.castShadow=true; key.shadow.mapSize.set(1024,1024);
+key.shadow.camera.near=1; key.shadow.camera.far=40;
+key.shadow.camera.left=-14;key.shadow.camera.right=14;key.shadow.camera.top=14;key.shadow.camera.bottom=-14;
+scene.add(key);
+const rim=new T.DirectionalLight(0x19d3ff,0.6); rim.position.set(-8,5,-6); scene.add(rim);
+const fill=new T.PointLight(0x2aa6ff,0.5,30); fill.position.set(0,6,8); scene.add(fill);
+const alarmLight=new T.PointLight(0xff2e4d,0,34); alarmLight.position.set(0,9,0); scene.add(alarmLight);
+
+/* floor */
+const floorGeo=new T.PlaneGeometry(60,60);
+const floorMat=new T.MeshStandardMaterial({color:0x0c1119,roughness:0.55,metalness:0.35});
+const floor=new T.Mesh(floorGeo,floorMat); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+const grid=new T.GridHelper(60,60,0x16304a,0x0f1f30); grid.position.y=0.01; scene.add(grid);
+
+/* containment tray (溢水受け) */
+const tray=new T.Mesh(new T.CylinderGeometry(4.2,4.2,0.35,48,1,true),
+  new T.MeshStandardMaterial({color:0x14202e,roughness:0.6,metalness:0.3,side:T.DoubleSide}));
+tray.position.y=0.17; scene.add(tray);
+
+/* ---- tank ---- */
+const TANK_H=6, TANK_R=2.2, TANK_Y=0.35;
+const glassMat=new T.MeshPhysicalMaterial({
+  color:0xbfe6ff,metalness:0,roughness:0.04,transmission:0.92,thickness:0.6,
+  transparent:true,opacity:0.3,ior:1.3,side:T.DoubleSide,clearcoat:1,clearcoatRoughness:0.05});
+const tank=new T.Mesh(new T.CylinderGeometry(TANK_R,TANK_R,TANK_H,56,1,true),glassMat);
+tank.position.y=TANK_Y+TANK_H/2; scene.add(tank);
+// neon rim rings
+function ring(y,color,op){const g=new T.Mesh(new T.TorusGeometry(TANK_R,0.045,10,60),
+  new T.MeshBasicMaterial({color,transparent:true,opacity:op}));g.rotation.x=Math.PI/2;g.position.y=y;scene.add(g);return g;}
+const rimTop=ring(TANK_Y+TANK_H,0x19d3ff,0.95);
+ring(TANK_Y,0x19d3ff,0.5);
+// HH marker ring (95%)
+const hhRing=ring(TANK_Y+TANK_H*0.95,0xffb020,0.6);
+// stop-SP marker ring (80%)
+const hiRing=ring(TANK_Y+TANK_H*0.80,0x19ff95,0.45);
+
+/* water */
+const waterMat=new T.MeshPhysicalMaterial({
+  color:0x2aa6ff,metalness:0,roughness:0.15,transmission:0.55,thickness:1.2,
+  transparent:true,opacity:0.86,ior:1.33,clearcoat:0.6});
+const SEG=48;
+const waterGeo=new T.CylinderGeometry(TANK_R*0.985,TANK_R*0.985,1,SEG,1,false);
+const water=new T.Mesh(waterGeo,waterMat); scene.add(water);
+// glowing surface disc
+const surf=new T.Mesh(new T.CircleGeometry(TANK_R*0.985,SEG),
+  new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:0.5}));
+surf.rotation.x=-Math.PI/2; scene.add(surf);
+const baseSurfZ=waterGeo.attributes.position.array.slice(); // not used; wave done on surf
+
+/* pump + pipe */
+const steel=new T.MeshStandardMaterial({color:0x5b6b7e,roughness:0.4,metalness:0.8});
+const pump=new T.Mesh(new T.BoxGeometry(1.1,0.9,1.1),steel);
+pump.position.set(3.4,0.6,0); pump.castShadow=true; scene.add(pump);
+const pumpLed=new T.Mesh(new T.SphereGeometry(0.12,16,16),new T.MeshBasicMaterial({color:0x19ff95}));
+pumpLed.position.set(3.4,1.12,0.5); scene.add(pumpLed);
+// pipe: pump -> up -> into tank top
+const pipeMat=new T.MeshStandardMaterial({color:0x7e8ea3,roughness:0.35,metalness:0.85});
+function pipe(x,y,z,h,rx,rz){const m=new T.Mesh(new T.CylinderGeometry(0.16,0.16,h,18),pipeMat);
+  m.position.set(x,y,z);m.rotation.x=rx||0;m.rotation.z=rz||0;m.castShadow=true;scene.add(m);return m;}
+pipe(3.4,TANK_Y+TANK_H-0.3,0,(TANK_Y+TANK_H-0.3)-1.0);          // vertical riser
+pipe((3.4+TANK_R)/2+0.1,TANK_Y+TANK_H-0.1,0,3.4-TANK_R+0.2,0,Math.PI/2); // horizontal into tank
+
+/* ---- HMI screen (CanvasTexture) ---- */
+function makeScreen(w,h,pxw,pxh){
+  const cv=document.createElement('canvas');cv.width=pxw;cv.height=pxh;
+  const tex=new T.CanvasTexture(cv);tex.anisotropy=4;
+  const mat=new T.MeshBasicMaterial({map:tex});
+  const mesh=new T.Mesh(new T.PlaneGeometry(w,h),mat);
+  const frame=new T.Mesh(new T.PlaneGeometry(w+0.18,h+0.18),
+    new T.MeshStandardMaterial({color:0x10161f,roughness:0.5,metalness:0.6}));
+  const grp=new T.Group(); frame.position.z=-0.02; grp.add(frame); grp.add(mesh);
+  return {grp,cv,ctx:cv.getContext('2d'),tex};
+}
+const hmi=makeScreen(3.4,2.2,512,330);
+hmi.grp.position.set(-4.6,2.7,0.5); hmi.grp.rotation.y=Math.PI*0.28; scene.add(hmi.grp);
+// HMI stand
+const stand=new T.Mesh(new T.CylinderGeometry(0.08,0.12,1.6,12),steel);
+stand.position.set(-4.6,0.8,0.5); scene.add(stand);
+
+/* ---- EWS monitor (CanvasTexture) ---- */
+const ews=makeScreen(2.4,1.5,480,300);
+ews.grp.position.set(4.9,2.4,0.3); ews.grp.rotation.y=-Math.PI*0.26; scene.add(ews.grp);
+const ewsStand=new T.Mesh(new T.CylinderGeometry(0.07,0.1,1.2,12),steel);
+ewsStand.position.set(4.9,1.1,0.3); scene.add(ewsStand);
+const desk=new T.Mesh(new T.BoxGeometry(3,0.15,1.6),
+  new T.MeshStandardMaterial({color:0x182230,roughness:0.6,metalness:0.4}));
+desk.position.set(4.9,0.5,0.3); desk.receiveShadow=true; desk.castShadow=true; scene.add(desk);
+// JRU device (small box beside EWS)
+const jru=new T.Mesh(new T.BoxGeometry(0.9,0.55,0.7),
+  new T.MeshStandardMaterial({color:0x0e3b2e,roughness:0.5,metalness:0.6}));
+jru.position.set(4.0,0.85,0.9); scene.add(jru);
+const jruLed=new T.Mesh(new T.SphereGeometry(0.07,12,12),new T.MeshBasicMaterial({color:0x19ff95}));
+jruLed.position.set(4.0,1.16,1.2); scene.add(jruLed);
+
+/* ---- overflow droplets ---- */
+function dropSprite(){
+  const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');
+  const g=x.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(180,230,255,1)');g.addColorStop(.4,'rgba(80,180,255,.8)');
+  g.addColorStop(1,'rgba(40,120,220,0)');x.fillStyle=g;x.fillRect(0,0,64,64);
+  return new T.CanvasTexture(c);
+}
+const N=420;
+const dropGeo=new T.BufferGeometry();
+const dpos=new Float32Array(N*3), dvel=new Float32Array(N*3), dlife=new Float32Array(N);
+dropGeo.setAttribute('position',new T.BufferAttribute(dpos,3));
+const dropMat=new T.PointsMaterial({size:0.42,map:dropSprite(),transparent:true,
+  depthWrite:false,blending:T.AdditiveBlending,color:0x9fdcff});
+const dropPts=new T.Points(dropGeo,dropMat); scene.add(dropPts);
+const drops={
+  i:0,
+  spawn(){
+    const a=Math.random()*Math.PI*2, r=TANK_R*0.98;
+    const k=this.i*3; this.i=(this.i+1)%N;
+    dpos[k]=Math.cos(a)*r; dpos[k+1]=TANK_Y+TANK_H; dpos[k+2]=Math.sin(a)*r;
+    dvel[k]=Math.cos(a)*(0.03+Math.random()*0.05);
+    dvel[k+1]=0.02+Math.random()*0.03;
+    dvel[k+2]=Math.sin(a)*(0.03+Math.random()*0.05);
+    dlife[this.i]=1;
+  },
+  update(dt){
+    for(let n=0;n<N;n++){
+      const k=n*3;
+      if(dpos[k+1]<=TANK_Y+0.3 && dvel[k+1]===0) continue;
+      if(dpos[k+1]<=TANK_Y+0.3){ dvel[k+1]=0; dpos[k+1]=TANK_Y+0.3; continue; }
+      dvel[k+1]-=0.012; // gravity
+      dpos[k]+=dvel[k]; dpos[k+1]+=dvel[k+1]; dpos[k+2]+=dvel[k+2];
+    }
+    dropGeo.attributes.position.needsUpdate=true;
+  },
+  reset(){ for(let i=0;i<dpos.length;i++)dpos[i]=0; for(let i=0;i<dvel.length;i++)dvel[i]=0;
+    dropGeo.attributes.position.needsUpdate=true; this.i=0; }
+};
+drops.reset();
+// spreading puddle on tray
+const puddle=new T.Mesh(new T.CircleGeometry(1,40),
+  new T.MeshBasicMaterial({color:0x2a7fd6,transparent:true,opacity:0.5}));
+puddle.rotation.x=-Math.PI/2; puddle.position.y=0.36; puddle.scale.set(0.001,0.001,0.001); scene.add(puddle);
+
+/* ---------------- orbit camera (hand-rolled) ---------------- */
+const target=new T.Vector3(0,3,0);
+let theta=0.7, phi=1.12, radius=15.5, autoRot=!prefersReduce;
+let dragging=false,px=0,py=0;
+function updCam(){
+  phi=Math.max(0.35,Math.min(1.45,phi));
+  camera.position.set(
+    target.x+radius*Math.sin(phi)*Math.sin(theta),
+    target.y+radius*Math.cos(phi),
+    target.z+radius*Math.sin(phi)*Math.cos(theta));
+  camera.lookAt(target);
+}
+const el=renderer.domElement;
+el.addEventListener('pointerdown',e=>{dragging=true;autoRot=false;px=e.clientX;py=e.clientY;el.setPointerCapture(e.pointerId);});
+el.addEventListener('pointermove',e=>{if(!dragging)return;
+  theta-=(e.clientX-px)*0.006; phi-=(e.clientY-py)*0.006; px=e.clientX;py=e.clientY;updCam();});
+el.addEventListener('pointerup',()=>{dragging=false;});
+el.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(9,Math.min(26,radius+e.deltaY*0.012));updCam();},{passive:false});
+
+/* ---------------- HUD + screens ---------------- */
+const elLevel=document.getElementById('h-level'),elHi=document.getElementById('h-hi'),
+  elPump=document.getElementById('h-pump'),elSafety=document.getElementById('h-safety'),
+  elEws=document.getElementById('h-ews');
+function pill(cls,txt){return '<span class="pill '+cls+'">'+txt+'</span>';}
+function drawHUD(){
+  elLevel.textContent=S.level.toFixed(1)+'%';
+  elLevel.style.color=S.overflow?'var(--danger)':S.level>=S.hh?'var(--warn)':'var(--fg)';
+  elHi.textContent=S.setHi>100?'改ざん':S.setHi.toFixed(1)+'%';
+  elHi.style.color=S.setHi>100?'var(--danger)':'var(--fg)';
+  elPump.innerHTML=S.pump?pill('p-ok','給水中'):pill('p-off','停止');
+  elSafety.innerHTML=S.safety?pill('p-ok','有効'):pill('p-bad','無効');
+  elEws.innerHTML=S.ews==='normal'||S.ews==='restored'?pill('p-ok','正常')
+    :S.ews==='encrypted'?pill('p-bad','暗号化')
+    :pill('p-warn','復元中 '+Math.round(S.restore*100)+'%');
+}
+function drawHMIScreen(t){
+  const x=hmi.ctx,W=512,H=330; x.clearRect(0,0,W,H);
+  x.fillStyle=S.overflow?'#1a0509':'#0a1017'; x.fillRect(0,0,W,H);
+  x.fillStyle='#19d3ff';x.font='bold 15px \"Space Grotesk\",sans-serif';
+  x.fillText('HMI — 貯液タンク監視',18,30);
+  x.fillStyle='#5c7187';x.font='11px sans-serif';x.fillText('Modbus/TCP  127.0.0.1:5020  (認証なし)',18,48);
+  // tank gauge
+  const gx=40,gy=70,gw=56,gh=210;
+  x.strokeStyle='#2a3b4d';x.lineWidth=2;x.strokeRect(gx,gy,gw,gh);
+  const lv=S.level/100, fh=gh*lv;
+  const grd=x.createLinearGradient(0,gy+gh-fh,0,gy+gh);
+  grd.addColorStop(0,'#7fd4ff');grd.addColorStop(1,'#1769c8');
+  x.fillStyle=grd;x.fillRect(gx+2,gy+gh-fh+2,gw-4,fh-4);
+  // markers
+  function mark(v,c,lbl){const yy=gy+gh-gh*v;x.strokeStyle=c;x.setLineDash([5,4]);
+    x.beginPath();x.moveTo(gx-6,yy);x.lineTo(gx+gw+40,yy);x.stroke();x.setLineDash([]);
+    x.fillStyle=c;x.font='10px sans-serif';x.fillText(lbl,gx+gw+44,yy+3);}
+  mark(Math.min(S.setHi,100)/100,'#19ff95','停止SP');
+  mark(S.hh/100,'#ffb020','HH 95%');
+  // numbers
+  x.fillStyle=S.overflow?'#ff2e4d':'#dce6f2';x.font='bold 54px \"Space Grotesk\",sans-serif';
+  x.fillText(S.level.toFixed(1),250,170);
+  x.font='bold 22px \"Space Grotesk\",sans-serif';x.fillText('%',250+ x.measureText(S.level.toFixed(1)).width+6,170);
+  x.font='13px sans-serif';x.fillStyle='#8395aa';x.fillText('現在水位',252,196);
+  // status chips
+  function chip(cx,cy,on,label,colOn){x.fillStyle=on?colOn:'#243445';
+    x.fillRect(cx,cy,118,30);x.fillStyle=on?'#061018':'#6b7d90';
+    x.font='bold 13px sans-serif';x.fillText(label,cx+12,cy+20);}
+  chip(252,220,S.pump,S.pump?'ポンプ 給水中':'ポンプ 停止','#19ff95');
+  chip(252,258,!S.safety,S.safety?'安全IL 有効':'安全IL 無効!','#ff2e4d');
+  if(S.overflow){
+    const bl=Math.sin(t*0.01)>0;
+    x.fillStyle=bl?'#ff2e4d':'#7a0a18';x.fillRect(18,296,476,22);
+    x.fillStyle='#fff';x.font='bold 14px sans-serif';x.fillText('⚠ 溢水アラーム — 液位上限到達',30,312);
+  }
+  hmi.tex.needsUpdate=true;
+}
+function drawEWSScreen(t){
+  const x=ews.ctx,W=480,H=300;x.clearRect(0,0,W,H);
+  if(S.ews==='normal'||S.ews==='restored'){
+    x.fillStyle='#0a2740';x.fillRect(0,0,W,H);
+    x.fillStyle='#0f3356';x.fillRect(0,0,W,34);
+    x.fillStyle='#8fd0ff';x.font='bold 13px \"Space Grotesk\",sans-serif';
+    x.fillText('EWS — 制御プロジェクト (OpenPLC)',14,22);
+    x.fillStyle='#bfe6ff';x.font='12px monospace';
+    const lines=['PROGRAM tank_control','  IF level >= stop_sp THEN pump := FALSE;',
+      '  IF level <= start_sp THEN pump := TRUE;','  IF safety AND level>=HH THEN pump:=FALSE;',
+      'END_PROGRAM','','// 正常ロジック — PLCへ投入済み'];
+    lines.forEach((l,i)=>x.fillText(l,16,62+i*22));
+    x.fillStyle=S.ews==='restored'?'#19ff95':'#19d3ff';x.font='bold 13px sans-serif';
+    x.fillText(S.ews==='restored'?'✓ JRU復元済み・基準状態':'● オンライン',16,H-18);
+  } else if(S.ews==='encrypted'){
+    const bl=Math.sin(t*0.008)>0;
+    x.fillStyle='#120306';x.fillRect(0,0,W,H);
+    x.fillStyle=bl?'#ff2e4d':'#b01026';x.font='bold 44px \"Space Grotesk\",sans-serif';
+    x.textAlign='center';x.fillText('🔒',W/2,90);
+    x.fillStyle='#ff6079';x.font='bold 22px \"Space Grotesk\",sans-serif';
+    x.fillText('FILES ENCRYPTED',W/2,150);
+    x.fillStyle='#c9a0a8';x.font='13px monospace';
+    x.fillText('制御プロジェクトは暗号化されました',W/2,182);
+    x.fillText('正しいロジックをPLCへ戻せません',W/2,204);
+    x.fillStyle='#ff2e4d';x.font='12px monospace';
+    x.fillText('tank_control.st.LOCKED  ·  key: ????',W/2,240);
+    x.textAlign='left';
+  } else if(S.ews==='restoring'){
+    x.fillStyle='#04120c';x.fillRect(0,0,W,H);
+    x.fillStyle='#19ff95';x.font='bold 15px \"Space Grotesk\",sans-serif';x.textAlign='center';
+    x.fillText('JRU RESTORE',W/2,60);
+    x.fillStyle='#8affc9';x.font='12px monospace';
+    x.fillText('装置から起動し直し、ディスクを基準状態へ書き戻し中',W/2,86);
+    // progress bar
+    const bx=70,bw=340,by=120;
+    x.strokeStyle='#1a5c42';x.lineWidth=2;x.strokeRect(bx,by,bw,26);
+    x.fillStyle='#19ff95';x.fillRect(bx+2,by+2,(bw-4)*S.restore,22);
+    x.fillStyle='#eafff5';x.font='bold 13px monospace';
+    x.fillText(Math.round(S.restore*100)+' %',W/2,by+19);
+    x.fillStyle='#6fdcac';x.font='11px monospace';
+    x.fillText('経過 '+(S.restore*40).toFixed(0)+'s / 実測 約40s (Linux VM, 段階1 QEMU 実証済み)',W/2,180);
+    x.fillText('EWSディスク = JRU保護対象',W/2,202);
+    x.textAlign='left';
+  }
+  ews.tex.needsUpdate=true;
+}
+
+/* ---------------- phase captions ---------------- */
+const elChap=document.getElementById('chapter'),elCap=document.getElementById('caption'),elSub=document.getElementById('subcap');
+function setPhase(ch,cap,sub){elChap.textContent=ch;elCap.textContent=cap;elSub.textContent=sub||'';}
+
+/* ---------------- auto story ---------------- */
+let story=[], storyTimers=[];
+function stopStory(){storyTimers.forEach(clearTimeout);storyTimers=[];}
+function at(ms,fn){storyTimers.push(setTimeout(fn,ms));}
+function playStory(){
+  resetAll();
+  at(100,()=>setPhase('起 · 正常運転','PLCが水位を20〜80%で自動制御',
+    '給水1.5%/排水0.8%。停止SP80%・HH95%。実物理のまま動作'));
+  at(5200,()=>setPhase('承 · プロトコルの弱点','Modbus/TCPには認証が無い',
+    'ネットワークに入れれば誰でもレジスタ/コイルを書き換えられる'));
+  at(9500,()=>{setPhase('転 · 攻撃','安全インターロック無効化＋停止水位を改ざん',
+    'ポンプが止まらない状態に。水位が上限へ上昇します');doAttack();});
+  // overflow caption fires reactively when overflow latches (see loop)
+  at(30000,()=>{ if(S.overflow){ setPhase('結 · 復旧','独立フロートスイッチで物理停止 → JRUがEWSを復元',
+    'PLCレジスタ改ざんは揮発性。永続する被害=EWSディスクをJRUが基準状態へ戻す');doRestore(); } });
+}
+let overflowAnnounced=false, restoredAnnounced=false;
+
+/* ---------------- buttons ---------------- */
+const elAttack=document.getElementById('attack'),elRestore=document.getElementById('restore');
+document.getElementById('play').onclick=playStory;
+elAttack.onclick=()=>{stopStory();doAttack();
+  setPhase('転 · 攻撃','安全インターロック無効化＋停止水位を改ざん','水位が上限へ上昇します');};
+elRestore.onclick=()=>{stopStory();doRestore();
+  setPhase('結 · 復旧','JRUがEWSを基準状態へ復元','正しい制御ロジックを再投入します');};
+document.getElementById('reset').onclick=resetAll;
+
+/* ---------------- resize ---------------- */
+function resize(){const w=app.clientWidth,h=app.clientHeight;
+  renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+window.addEventListener('resize',resize); resize(); updCam();
+
+/* ---------------- main loop ---------------- */
+let prev=performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt=Math.min(0.05,(now-prev)/1000); prev=now;
+
+  // physics scan @ fixed rate
+  if(now-lastScan>=SCAN_MS){ lastScan=now; scan();
+    // restore progress advances on scan ticks (~40 ticks -> feels like 40s label)
+    if(S.ews==='restoring'){ S.restore=Math.min(1,S.restore+1/40);
+      if(S.restore>=1) finishRestore(); }
+  }
+
+  // reactive captions
+  if(S.overflow && !overflowAnnounced){ overflowAnnounced=true;
+    setPhase('転 · 物理被害','溢水！ 床に水が溢れ、EWSが暗号化された',
+      '製造ラインなら製品ロス・床汚染・ライン停止。制御PCも侵害'); }
+  if(!S.overflow) overflowAnnounced=false;
+  if(S.ews==='restored' && !restoredAnnounced){ restoredAnnounced=true;
+    setPhase('結 · 復旧完了','正しい制御を再投入 → 水位が制御下に戻った',
+      'JRUが無ければ暗号化されたEWSを基準状態に戻せない'); }
+  if(S.ews!=='restored') restoredAnnounced=false;
+
+  // ---- update water mesh to level ----
+  const h=Math.max(0.02,(S.level/100)*TANK_H);
+  water.scale.y=h; water.position.y=TANK_Y+h/2;
+  surf.position.y=TANK_Y+h + (prefersReduce?0:Math.sin(now*0.004)*0.03);
+  surf.material.opacity=S.level>0.5?0.5:0;
+  // water color shifts toward danger near overflow
+  const dz=S.overflow?1:Math.max(0,(S.level-85)/15);
+  waterMat.color.setRGB(0.16+dz*0.7,0.65-dz*0.45,1.0-dz*0.7);
+
+  // ---- overflow effects ----
+  if(S.level>=99.3){ for(let i=0;i<6;i++) drops.spawn();
+    const ps=Math.min(3.6,puddle.scale.x+dt*0.9); puddle.scale.set(ps,ps,ps);
+    puddle.material.opacity=0.55;
+  }
+  drops.update(dt);
+
+  // ---- alarm lighting ----
+  const alarmOn=S.overflow||!S.safety;
+  const pulse=alarmOn?(Math.sin(now*0.009)*0.5+0.5):0;
+  alarmLight.intensity=pulse*2.6;
+  scene.fog.color.setRGB(0.027+pulse*0.12*(S.overflow?1:0.3),0.039,0.059);
+  rimTop.material.color.setHex(alarmOn?0xff2e4d:0x19d3ff);
+  hhRing.material.opacity=0.4+pulse*0.5;
+
+  // leds
+  pumpLed.material.color.setHex(S.pump?0x19ff95:0x1a2e24);
+  jruLed.material.color.setHex(S.ews==='restoring'?(Math.sin(now*0.02)>0?0x19ff95:0x0a3b2a):0x19ff95);
+
+  // ---- screens + hud ----
+  drawHMIScreen(now); drawEWSScreen(now); drawHUD();
+
+  // auto-rotate
+  if(autoRot){ theta+=dt*0.12; updCam(); }
+
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(loop);
+})();
+</script>

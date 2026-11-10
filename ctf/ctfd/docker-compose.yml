@@ -1,0 +1,15 @@
+# OT-CTF 用 CTFd（Mac=アリーナホストで起動）。4人・協力・謎解き公演向けの最小構成。
+# イメージはダイジェスト固定（2026-10-22 取得分）。起動: docker compose up -d
+services:
+  ctfd:
+    image: ctfd/ctfd@sha256:84aff1e50b6a6f931b5da90c6f5b7c623ba4583217a9b00e9d4c1b7c53b9739f
+    container_name: ot-ctfd
+    ports:
+      - "8000:8000"          # 参加者は http://<MacのLAN IP>:8000 に接続
+    environment:
+      - DATABASE_URL=sqlite:////var/lib/CTFd/CTFd.db
+      - SECRET_KEY=ot-ctf-change-me
+      - UPLOAD_FOLDER=/var/lib/CTFd/uploads
+    volumes:
+      - ./ctfd-data:/var/lib/CTFd   # DB・アップロードを永続化
+    restart: unless-stopped
