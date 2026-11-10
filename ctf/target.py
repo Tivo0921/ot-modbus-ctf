@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""OT-CTF 的サーバ: 認証なし Modbus/TCP の貯液タンク（溢水させたら勝ち）.
+"""OT-CTF 制御装置サーバ: 認証なし Modbus/TCP の貯液タンク（あふれさせたら勝ち）.
 
 !!! 教育目的・隔離環境専用 !!!
-これは OT セキュリティ・ワークショップ用の「的」である。実機・実インフラ・
+これは OT セキュリティ・ワークショップで攻撃対象にする制御装置である。実機・実インフラ・
 許可のないネットワークには絶対に接続しない。閉じたラボ/ホットスポット内でのみ使う。
 
 CTF の趣旨:
   - 参加者にはこのソースも**メモリマップも渡さない**。Modbus/TCP の基礎と
     Wireshark だけを手がかりに、どのレジスタ/コイルが何かを**自分で観測して当て**、
     最終的にタンクを**実際に溢れさせる**（＝実害を出す）ことを目指す。
-  - 達成条件を満たすと、的が**フラグ文字列をレジスタに書き込む**。参加者は
+  - 達成条件を満たすと、制御装置が**フラグ文字列をレジスタに書き込む**。参加者は
     それを Modbus で**読み出して**提出する（採点サーバ不要・自己検証・推測不可）。
 
 対応機能コード: 0x01 読コイル / 0x03 読保持レジスタ / 0x05 書コイル /
@@ -129,7 +129,7 @@ class Store:
             hi = data[i]
             lo = data[i + 1] if i + 1 < len(data) else 0
             self.regs[base + i // 2] = (hi << 8) | lo
-        print(f"  [的] 🚩 達成: {name} → フラグをレジスタ {base}番台 に出現させた")
+        print(f"  [制御装置] 🚩 達成: {name} → フラグをレジスタ {base}番台 に出現させた")
 
 
 # ---------------- 物理 + 制御（ws01/simulator/plc.py と同一ロジック） ----------------
@@ -303,21 +303,21 @@ def serve(host: str, port: int, interval: float) -> None:
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind((host, port)); srv.listen(16)
-    print(f"[的] Modbus/TCP {host}:{port} で待受開始（CTF・隔離ラボ専用）")
-    print("[的] 参加者はマップを知らない。観測して当て、タンクを溢れさせたら勝ち。")
-    print("[的] Ctrl+C で停止\n")
+    print(f"[制御装置] Modbus/TCP {host}:{port} で待受開始（CTF・隔離ラボ専用）")
+    print("[制御装置] 参加者は設計図を知らない。観測して当て、タンクをあふれさせたら勝ち。")
+    print("[制御装置] Ctrl+C で停止\n")
     try:
         while True:
             conn, _ = srv.accept()
             threading.Thread(target=handle_conn, args=(s, conn), daemon=True).start()
     except KeyboardInterrupt:
-        print("\n[的] 停止します")
+        print("\n[制御装置] 停止します")
     finally:
         stop.set(); srv.close()
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="OT-CTF 的サーバ（隔離ラボ専用）")
+    ap = argparse.ArgumentParser(description="OT-CTF 制御装置サーバ（隔離ラボ専用）")
     ap.add_argument("--host", default="0.0.0.0",
                     help="中央ホスト配信は 0.0.0.0、各自ローカルは 127.0.0.1")
     ap.add_argument("--port", type=int, default=5020)

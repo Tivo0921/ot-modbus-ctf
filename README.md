@@ -14,17 +14,17 @@ OTセキュリティ研究会 第1回ワークショップの**代替案**。物
 
 | ディレクトリ | 中身 |
 |------|------|
-| `ctf/target.py` | フラグ付きの的サーバ（Modbus/TCP, マップ秘匿＋デコイ, 達成でフラグがレジスタに出現） |
-| `ctf/selftest.py` | 的の自己テスト（攻撃→フラグ読出→溢水を検証） |
-| `ctf/ctfd/` | CTFd（docker compose）＋ チャレンジ一覧 ＋ 運用手順 |
-| `ctf/takehome/` | 持ち帰り課題（制御ステーションをぶっ壊してフラグ・JRU不要・自己完結） |
-| `demo/index.html` | 溢水を見せる3Dビジュアル（Three.js・1ファイル。生計器化は今後） |
+| `ctf/target.py` | 攻撃対象の制御装置サーバ（Modbus/TCP。設計図を伏せ、ダミーのレジスタも混ぜる。攻撃成功でフラグがレジスタに出る） |
+| `ctf/selftest.py` | 制御装置サーバの自己テスト（攻撃→フラグ読み出し→溢水まで検証） |
+| `ctf/ctfd/` | CTFd（docker compose）＋ 問題一覧 ＋ 運用手順 |
+| `ctf/takehome/` | 持ち帰り課題（制御プロジェクトを壊すとフラグが出る・JRU不要・自己完結） |
+| `demo/index.html` | 溢水を見せる3Dビジュアル（Three.js・1ファイル。本物の通信値での駆動は今後） |
 | `docs/design.md` | 全体設計メモ（当日の体験・攻撃シナリオ・将来のJRU連携） |
 
 ## クイックスタート（司会/準備）
 
 ```bash
-# 1) 的を起動（中央ホスト=Mac）
+# 1) 制御装置サーバを起動（中央ホスト=Mac）
 python3 ctf/target.py --host 0.0.0.0 --port 5020
 # 2) 動作確認
 python3 ctf/selftest.py          # => 自己テスト PASS

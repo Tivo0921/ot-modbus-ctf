@@ -1,19 +1,19 @@
 # CTFd セットアップ（Mac = アリーナホスト）
 
 4人・協力・競争なしの「謎解き公演」用。CTFd はチャレンジ提示・フラグ提出・ヒント開放を担当する。
-的（タンク）本体は `../target.py`。
+制御装置（タンク）本体は `../target.py`。
 
 ## 当日の構成
 
 ```
                  隔離LAN / ホットスポット
  参加者PC ×4 ──┬── http://<MacのIP>:8000   （CTFd: 問題・フラグ提出）
-  Wireshark   └── <MacのIP>:5020 Modbus/TCP （的 target.py: 攻撃対象の実体）
+  Wireshark   └── <MacのIP>:5020 Modbus/TCP （制御装置 target.py: 攻撃対象の実体）
   mbclient.py
                  ↑ どちらも Mac で動かす
 ```
 
-## 1. 的を起動（別ターミナル）
+## 1. 制御装置サーバを起動（別ターミナル）
 
 ```bash
 cd ot-demo-3d

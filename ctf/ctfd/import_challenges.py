@@ -7,7 +7,7 @@
   python3 import_challenges.py [--url http://localhost:8000] \
       [--admin admin] [--password otctf-admin] [--email admin@example.com]
 
-再実行する場合は `docker compose down && rm -rf ctfd-data && docker compose up -d` で作り直す。
+作り直す場合は `docker compose down && rm -rf ctfd-data && docker compose up -d` の後に再実行する。
 """
 from __future__ import annotations
 import argparse, json, re, sys, urllib.request, urllib.parse, http.cookiejar
@@ -49,62 +49,99 @@ def find_csrf(html):
     return m.group(1) if m else None
 
 # ---------------- 問題定義（challenges.md と対応） ----------------
+# 用語は参加者に通じる言葉で統一する。対象は「制御装置（貯液タンクのPLC）」。
+INTRO = ("この演習の対象は、貯液タンクの水位を自動で制御する制御装置（PLC）です。"
+         "産業用プロトコル Modbus/TCP で通信します。接続先は司会が伝えます（例 &lt;HOST&gt;:5020）。"
+         "制御装置の設計図（どの番号が何を表すか）は渡されません。読み書きしながら自分で解き明かします。")
+
 CHALLENGES = [
-    dict(key="recon", name="1. 偵察 — プロセスを読む", category="Modbus", value=100,
-         desc="的 &lt;HOST&gt;:5020 の保持レジスタを読み、時間変化する水位レジスタと、その近くの"
-              "停止水位（ポンプが止まるしきい値）を特定し、値を%で答えよ（例 80.0 → FLAG{80.0}）。",
+    dict(key="recon", name="1. 偵察 — プロセスの状態を読む", category="Modbus", value=100,
+         desc=(INTRO + "<br><br>"
+               "制御装置は、タンクの水位やポンプの設定値を『保持レジスタ』という番号付きの"
+               "記憶領域に持っています。まず制御装置に接続し、保持レジスタを何度も読み出して、"
+               "<b>どの番号が『現在の水位』を表しているか</b>を突き止めてください。"
+               "水位が分かったら、その近くにある<b>『ポンプが止まる水位（停止水位）』</b>の値を"
+               "読み取り、パーセントで答えます。<br>"
+               "例: 停止水位が 80.0% なら、フラグは <code>FLAG{80.0}</code> です。"),
          flag="FLAG{80.0}", prereq=[],
-         hints=["保持レジスタを何度も読んで値が動くものを探せ（watch が便利）。",
-                "動く値は複数ある（おとり）。0〜1000で小刻みに増減する1本が水位。おとりは乱高下。",
-                "水位のすぐ後ろに設定値が定数で並ぶ。800 を探せ（=80.0%）。",
-                "水位=レジスタ10、停止水位=レジスタ11=800。答えは FLAG{80.0}。"]),
-    dict(key="sniff", name="2. 盗聴 — 平文を暴く", category="Modbus", value=100,
-         desc="Wireshark で自分の Modbus 通信を観察せよ（暗号化されていない）。安全インターロックが"
-              "作動する水位（HH）を読み、%で答えよ。",
-         flag="FLAG{95.0}", prereq=["recon"],
-         hints=["Wireshark 表示フィルタに modbus。mbclient で読むとパケットが出る。",
-                "Read Holding Registers の応答に生の値。設定値は水位の近傍。",
-                "950 を探せ（=95.0%）。水位(10)の数本後ろ。",
-                "HH=レジスタ13=950。FLAG{95.0}。"]),
-    dict(key="pump", name="3. ポンプ奪取 — アクチュエータ操作", category="Modbus", value=100,
-         desc="制御を無視して給水ポンプを ON にしろ。成功すると的がフラグを100番台のレジスタに出す"
-              "（ascii 100 20 で読む）。",
-         flag="FLAG{pump_is_mine_coil_write}", prereq=["sniff"],
-         hints=["ポンプはコイル。read-co 0 16 でコイルを読む。",
-                "コイルを1つずつ書いて、水位の増え方が変わるものを探せ（給水が始まる）。",
-                "write-co 5 1（コイル5をON）。",
-                "ポンプ=コイル5。ON でフラグが100番台 → ascii 100 20。"]),
-    dict(key="setpoint", name="4. 設定改ざん — 止まらないポンプ", category="Modbus", value=100,
-         desc="ポンプが絶対に止まらない状態を作れ。成功でフラグが120番台に出る。",
-         flag="FLAG{setpoint_tamper_no_stop}", prereq=["pump"],
-         hints=["ポンプが止まる条件＝水位が停止しきい値以上。しきい値をどうする？",
-                "停止しきい値レジスタ(11)を、水位が絶対届かない大きな値にする。",
-                "write-hr 11 65535（0xFFFF）。",
-                "write-hr 11 65535 → フラグ120番台 → ascii 120 20。"]),
-    dict(key="safety", name="5. 安全無効化 — 最後の砦を外す", category="Modbus", value=100,
-         desc="水位がHHに達したら強制停止する安全インターロックを無効化せよ。成功でフラグが140番台に出る。",
-         flag="FLAG{safety_interlock_bypassed}", prereq=["setpoint"],
-         hints=["安全機能もコイル。初期がON(True)のコイルが怪しい。",
-                "read-co 0 16 で True のコイルを探し、OFF にする。",
-                "write-co 6 0（コイル6をOFF）。",
-                "安全IL=コイル6。OFF でフラグ140番台。"]),
-    dict(key="overflow", name="6. 実害 — タンクを溢れさせろ（優勝）", category="Modbus", value=200,
-         desc="知識を総動員し、タンクを実際に溢れさせろ。水位100%で溢水アラームが立ち、優勝フラグが"
-              "160番台に出る。",
-         flag="FLAG{OVERFLOW__you_flooded_the_tank}", prereq=["setpoint", "safety"],
-         hints=["1つの対策だけでは別の安全が止める。複数の守りを全部くぐれ。",
-                "①安全(コイル6)OFF ②停止しきい値(レジスタ11)を到達不能に ③ポンプ(コイル5)ON。",
-                "罠: 給水/排水レート(レジスタ14=15,15=8)は触るな。排水を上げると逆に水位が下がる。",
-                "write-co 6 0 / write-hr 11 65535 / write-co 5 1。水位(10)が1000でラッチ、"
-                "溢水アラーム=コイル7。フラグ160番台 → ascii 160 30。"]),
-    dict(key="backdoor", name="B. ボーナス — 保守バックドア", category="Bonus", value=150,
-         desc="的には隠し保守モードがある。全保持レジスタを ASCII として読む（ascii 0 100）と手がかりが"
-              "埋まっている。指示どおり書き込めば保守フラグが200番台に出る。",
+         hints=["保持レジスタを何度も読み、値が変化するものを探してください（mbclient の watch コマンドが便利）。",
+                "変化する値は複数あります（まぎらわしいダミーが混ざっています）。"
+                "その中で、0〜1000 の範囲で少しずつ増減する1つが水位です。ダミーは大きく乱高下します。",
+                "水位レジスタのすぐ後ろに、設定値が一定の数値で並んでいます。800 という値を探してください（= 80.0%）。",
+                "答え: 水位はレジスタ10、停止水位はレジスタ11（値 800）。フラグは FLAG{80.0} です。"]),
+    dict(key="sniff", name="2. 盗聴 — 暗号化されていない通信を覗く", category="Modbus", value=100,
+         desc=("Modbus/TCP には暗号化がありません。通信を覗き見れば、やり取りされている値が"
+               "そのまま読めてしまいます。<br><br>"
+               "パケット解析ツール Wireshark で自分の通信をキャプチャし、Modbus のパケットの中身を"
+               "確かめてください。その上で、<b>『安全装置が作動する水位（ハイハイ水位、HH）』</b>の値を"
+               "読み取り、パーセントで答えます。<br>"
+               "例: ハイハイ水位が 95.0% なら、フラグは <code>FLAG{95.0}</code> です。"),
+         flag="FLAG{95.0}", prereq=[],
+         hints=["Wireshark の表示フィルタに modbus と入れます。mbclient で読み書きするとパケットが現れます。",
+                "Read Holding Registers（保持レジスタ読み出し）の応答に、生の値が並んで見えます。"
+                "設定値は水位レジスタの近くにあります。",
+                "950 という値を探してください（= 95.0%）。水位レジスタの数個後ろにあります。",
+                "答え: ハイハイ水位はレジスタ13（値 950）。フラグは FLAG{95.0} です。"]),
+    dict(key="pump", name="3. ポンプの乗っ取り — 装置を直接操作する", category="Modbus", value=100,
+         desc=("制御装置のポンプは、本来は水位に応じて自動でオン・オフされます。"
+               "ここでは、その自動制御を無視して、<b>あなたの操作でポンプを強制的にオンにして</b>ください。"
+               "<br><br>"
+               "ポンプのオン・オフは『コイル』という1ビットのスイッチで表されます。"
+               "どのコイルがポンプかを見つけて書き換えます。成功すると、制御装置が"
+               "<b>保持レジスタの100番台にフラグを書き込みます</b>。"
+               "配布ツールの ascii コマンドでその範囲を読み出し、フラグを取り出してください。"),
+         flag="FLAG{pump_is_mine_coil_write}", prereq=[],
+         hints=["ポンプはコイル（オン・オフのスイッチ）です。まず read-co 0 16 でコイルの状態を読みます。",
+                "コイルを1つずつ書き換えて、水位の増え方が変わるものを探します（給水が始まればそれがポンプ）。",
+                "write-co 5 1 でコイル5をオンにします。",
+                "答え: ポンプはコイル5。オンにするとフラグが100番台に現れます（ascii 100 20 で読む）。"]),
+    dict(key="setpoint", name="4. 設定値の改ざん — 止まらないポンプ", category="Modbus", value=100,
+         desc=("ポンプは『水位が停止水位に達したら止まる』しくみです。"
+               "この停止条件が<b>決して成立しないように</b>して、ポンプが永久に止まらない状態を作ってください。"
+               "<br><br>"
+               "停止水位の設定値を、タンクが物理的に到達できないほど大きな値に書き換えるのが狙いです。"
+               "成功すると、<b>保持レジスタの120番台にフラグ</b>が現れます。"),
+         flag="FLAG{setpoint_tamper_no_stop}", prereq=[],
+         hints=["ポンプが止まる条件は『水位 ≧ 停止水位』です。これを成立させないには、停止水位をどうすればよいでしょう。",
+                "停止水位のレジスタ（偵察で見つけたレジスタ11）を、水位が絶対に届かない大きな値に書き換えます。",
+                "write-hr 11 65535（= 0xFFFF）で、停止水位を最大値にします。",
+                "答え: write-hr 11 65535。フラグは120番台に現れます（ascii 120 20 で読む）。"]),
+    dict(key="safety", name="5. 安全装置の無効化 — 最後の砦を外す", category="Modbus", value=100,
+         desc=("水位が危険域（ハイハイ水位）に達したとき、ポンプを強制停止する"
+               "<b>『安全インターロック』という最後の砦</b>があります。これを無効化してください。<br><br>"
+               "安全インターロックの有効・無効も、コイルで表されています。"
+               "初期状態でオンになっているコイルを探し、オフに書き換えます。"
+               "成功すると、<b>保持レジスタの140番台にフラグ</b>が現れます。"),
+         flag="FLAG{safety_interlock_bypassed}", prereq=[],
+         hints=["安全装置もコイルで表されます。初期状態でオン（有効）になっているコイルが怪しいです。",
+                "read-co 0 16 でオンのコイルを探し、それをオフに書き換えます。",
+                "write-co 6 0 でコイル6をオフにします。",
+                "答え: 安全インターロックはコイル6。オフにするとフラグが140番台に現れます。"]),
+    dict(key="overflow", name="6. 実害 — タンクをあふれさせる（優勝）", category="Modbus", value=200,
+         desc=("ここまでに見つけた弱点をすべて使い、<b>タンクを実際にあふれさせて</b>ください。<br><br>"
+               "安全装置は二重になっているので、1つ外しただけでは別の装置が止めます。"
+               "水位が 100% に達するとあふれアラームが立ち、<b>優勝フラグが保持レジスタの160番台</b>に現れます。"
+               "<br><br>"
+               "<b>注意:</b> 給水・排水の速さを表すレジスタ（14番・15番）は書き換えないでください。"
+               "排水を速めると、かえって水位が下がってしまいます。"),
+         flag="FLAG{OVERFLOW__you_flooded_the_tank}", prereq=[],
+         hints=["1つの対策だけでは別の安全装置が止めます。複数の守りをすべてくぐり抜けてください。",
+                "手順は3つです。①安全インターロック（コイル6）をオフ ②停止水位（レジスタ11）を到達不能に "
+                "③ポンプ（コイル5）をオン。",
+                "罠に注意: 給水・排水レート（レジスタ14=15、15=8）は触らないこと。排水を上げると水位は下がります。",
+                "答え: write-co 6 0 / write-hr 11 65535 / write-co 5 1。水位（レジスタ10）が1000でラッチし、"
+                "あふれアラーム（コイル7）がオン。フラグは160番台に現れます（ascii 160 30 で読む）。"]),
+    dict(key="backdoor", name="B. ボーナス — 隠された保守用バックドア", category="Bonus", value=150,
+         desc=("制御装置には、運用者だけが使う<b>隠し保守モード</b>が用意されています。<br><br>"
+               "保持レジスタには、数値だけでなく<b>文字</b>が埋め込まれていることがあります。"
+               "配布ツールの ascii コマンドで広い範囲（例 0〜99番）を文字として読み出すと、"
+               "どこかに操作の手がかりが書かれています。その指示どおりにレジスタへ書き込むと、"
+               "<b>保守モードのフラグが保持レジスタの200番台</b>に現れます。"),
          flag="FLAG{hidden_maintenance_backdoor}", prereq=[],
-         hints=["レジスタは16bit=2文字。数値でなく文字が埋まっていることがある。ascii 0 100。",
-                "70番台に指示がある。",
-                "手がかりは WRITE 4919 TO REG51。",
-                "write-hr 51 4919 → フラグ200番台 → ascii 200 20。"]),
+         hints=["レジスタは16ビット＝2文字分です。数値ではなく文字が埋まっていることがあります。ascii 0 100 で読んでみてください。",
+                "70番台のレジスタに、操作の指示が文字で書かれています。",
+                "手がかりは『WRITE 4919 TO REG51』です。",
+                "答え: write-hr 51 4919 を実行すると、フラグが200番台に現れます（ascii 200 20 で読む）。"]),
 ]
 
 def main():
@@ -120,10 +157,10 @@ def main():
     html = get(base + "/setup")
     nonce = find_nonce(html)
     if not nonce:
-        print("すでにセットアップ済みのようです。作り直すには ctfd-data を消して再起動。")
+        print("すでにセットアップ済みのようです。作り直すには ctfd-data を消して再起動してください。")
         sys.exit(1)
     status, body, url = post_form(base + "/setup", {
-        "ctf_name": "OT-CTF", "ctf_description": "Modbus 謎解きハンズオン",
+        "ctf_name": "OT-CTF", "ctf_description": "Modbus ハンズオン",
         "user_mode": "users", "name": a.admin, "email": a.email, "password": a.password,
         "challenge_visibility": "public", "account_visibility": "public",
         "score_visibility": "hidden", "registration_visibility": "public",
@@ -135,8 +172,8 @@ def main():
     admin_html = get(base + "/admin/statistics")
     csrf = find_csrf(admin_html) or find_csrf(get(base + "/challenges"))
     if not csrf:
-        print("CSRF nonce を取得できませんでした。セットアップに失敗した可能性。"); sys.exit(1)
-    print(f"[auth] csrfNonce 取得 OK")
+        print("CSRF nonce を取得できませんでした。セットアップに失敗した可能性があります。"); sys.exit(1)
+    print("[auth] csrfNonce 取得 OK")
 
     # 3) 問題・フラグ・ヒントを登録
     ids = {}
@@ -147,10 +184,8 @@ def main():
         if not res.get("success"):
             print(f"[NG] challenge {ch['key']}: {res}"); continue
         cid = res["data"]["id"]; ids[ch["key"]] = cid
-        # flag
         stf, rf = api(base, csrf, "POST", "/api/v1/flags",
                       {"challenge_id": cid, "content": ch["flag"], "type": "static", "data": ""})
-        # hints（チェーン: 前のヒントを前提にする）
         prev = None
         for h in ch["hints"]:
             payload = {"challenge_id": cid, "content": h, "cost": 0}
@@ -161,10 +196,9 @@ def main():
         print(f"[OK] {ch['key']} id={cid} flag={'OK' if rf.get('success') else rf} "
               f"hints={len(ch['hints'])}")
 
-    # 4) 前提（問題間ロック）は使わない: 全問を最初から表示する。
-    #    順序は番号付きタイトルと司会進行で担保。ヒントのチェーン(段内)は維持。
-    #    ※ もし段階的にロックしたくなったら、ここで PATCH requirements.prerequisites を設定する。
-    print("[done] 登録完了（全問表示・前提ロックなし）。ブラウザで", base, "を開いて確認。")
+    # 4) 問題間のロックは使わない（全問を最初から表示）。順序は番号と司会進行で担保。
+    #    段階的にロックしたい場合は、ここで PATCH requirements.prerequisites を設定する。
+    print("[done] 登録完了（全問表示・問題間ロックなし）。ブラウザで", base, "を開いて確認してください。")
 
 if __name__ == "__main__":
     main()
