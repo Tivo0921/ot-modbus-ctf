@@ -71,18 +71,25 @@ def build_content(dl_url, code):
 **▶ [mbclient.py をダウンロード]({dl_url})**（右クリックで保存、または開いて保存）
 
 ### 使い方
+
+**引数の順番**（重要）:
+- `read-hr / read-co` … **1個目＝開始番号、2個目＝読む個数**
+- `write-hr` … **1個目＝レジスタ番号、2個目＝書き込む値**
+- `write-co` … **1個目＝コイル番号、2個目＝1(ON)/0(OFF)**
+
 ```
-python3 mbclient.py --host <IP> read-hr 0 30     # 保持レジスタ 0〜29 を読む
-python3 mbclient.py --host <IP> read-co 0 16     # コイル 0〜15 を読む
-python3 mbclient.py --host <IP> write-co 5 1     # コイル5 を ON(1)/OFF(0)
-python3 mbclient.py --host <IP> write-hr 11 65535 # 保持レジスタ11 に値を書く
+python3 mbclient.py --host <IP> read-hr 0 30     # 0番から30個 読む（保持レジスタ 0〜29）
+python3 mbclient.py --host <IP> read-hr 100 20   # 100番から20個 読む（開始が0以外の例）
+python3 mbclient.py --host <IP> read-co 0 16     # コイル 0番から16個 読む
+python3 mbclient.py --host <IP> write-co 5 1     # コイル5番 を ON(1)/OFF(0)
+python3 mbclient.py --host <IP> write-hr 11 65535 # レジスタ11番 に 65535 を書く
 ```
 値の変化（水位など）は `read-hr` を**何度も実行**して観察します。
 
 | コマンド | 意味 |
 |---|---|
-| `read-hr <番号> <個数>` | 保持レジスタを読む（16bit 数値） |
-| `read-co <番号> <個数>` | コイルを読む（ON/OFF） |
+| `read-hr <開始番号> <個数>` | 保持レジスタを読む（16bit 数値） |
+| `read-co <開始番号> <個数>` | コイルを読む（ON/OFF） |
 | `write-co <番号> <0/1>` | コイルを書く（ポンプ・安全装置） |
 | `write-hr <番号> <値>` | レジスタを書く（設定値の改ざん） |
 

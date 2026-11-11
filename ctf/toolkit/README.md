@@ -10,17 +10,22 @@
 
 ## 1. まず接続する
 
+**引数の順番（重要）**:
+- `read-hr / read-co` … **1個目＝開始番号、2個目＝読む個数**
+- `write-hr` … **1個目＝レジスタ番号、2個目＝書き込む値** ／ `write-co` … **1個目＝コイル番号、2個目＝1(ON)/0(OFF)**
+
 ```bash
-python3 mbclient.py --host <HOST> read-hr 0 30     # 保持レジスタ 0〜29 を読む
-python3 mbclient.py --host <HOST> read-co 0 16     # コイル 0〜15 を読む
+python3 mbclient.py --host <HOST> read-hr 0 30     # 0番から30個 読む（保持レジスタ 0〜29）
+python3 mbclient.py --host <HOST> read-hr 100 20   # 100番から20個 読む（開始が0以外の例）
+python3 mbclient.py --host <HOST> read-co 0 16     # コイル 0番から16個 読む
 ```
 
 主なコマンド:
 
 | コマンド | 意味 |
 |----------|------|
-| `read-hr <番号> <個数>` | 保持レジスタを読む（16ビットの数値） |
-| `read-co <番号> <個数>` | コイルを読む（オン/オフ） |
+| `read-hr <開始番号> <個数>` | 保持レジスタを読む（16ビットの数値） |
+| `read-co <開始番号> <個数>` | コイルを読む（オン/オフ） |
 | `write-co <番号> <0/1>` | コイルを書き換える（ポンプや安全装置はここ） |
 | `write-hr <番号> <値>` | 保持レジスタを書き換える（設定値の改ざんはここ） |
 
