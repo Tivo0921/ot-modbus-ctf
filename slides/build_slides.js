@@ -151,18 +151,20 @@ function dot(s,x,y,color){ s.addShape(p.ShapeType.ellipse,{x,y,w:0.2,h:0.2,fill:
 (function(){ const s=slide(PAPER);
   eyebrow(s,"演習の流れ（CTF形式）");
   title(s,"偵察から始め、最後はあふれさせる");
-  const steps=[["1","偵察"],["2","盗聴"],["3","ポンプ奪取"],["4","設定改ざん"],["5","安全無効化"],["6","溢水（目的達成）"]];
-  steps.forEach((t,i)=>{ const y=2.15+i*0.78; const last=i===5;
-    card(s,M,y,6.9,0.66,last?DANGER:CARD,0,last?DANGER:CARDLINE);
-    s.addText(t[0],{x:M+0.15,y:y,w:0.6,h:0.66,isTextBox:true,align:"center",valign:"middle",fontFace:HF,fontSize:B,bold:true,color:last?WHITE:CY});
-    s.addText(t[1],{x:M+0.85,y:y,w:5.9,h:0.66,isTextBox:true,valign:"middle",margin:0,fontFace:BF,fontSize:B,bold:true,color:last?WHITE:INK}); });
+  const steps=[["1","偵察"],["2","盗聴"],["3","ポンプ奪取"],["4","設定改ざん"],["5","安全無効化 → 溢水"]];
+  steps.forEach((t,i)=>{ const y=2.2+i*0.86; const last=i===4;
+    card(s,M,y,6.9,0.72,last?DANGER:CARD,0,last?DANGER:CARDLINE);
+    s.addText(t[0],{x:M+0.15,y:y,w:0.6,h:0.72,isTextBox:true,align:"center",valign:"middle",fontFace:HF,fontSize:B,bold:true,color:last?WHITE:CY});
+    s.addText(t[1],{x:M+0.85,y:y,w:5.9,h:0.72,isTextBox:true,valign:"middle",margin:0,fontFace:BF,fontSize:B,bold:true,color:last?WHITE:INK});
+    if(last) s.addText("目的達成",{x:M+5.4,y:y,w:1.4,h:0.72,isTextBox:true,align:"right",valign:"middle",margin:0,fontFace:BF,fontSize:D,bold:true,color:WHITE}); });
   s.addText([
-    {text:"成功すると制御装置が",options:{color:INK}},{text:"フラグ",options:{bold:true,color:CY}},
-    {text:"をレジスタに出す。",options:{color:INK,breakLine:true}},
-    {text:" ",options:{breakLine:true,fontSize:8}},
-    {text:"読み出して提出。設計図は渡さず、観測して自分で当てる。",options:{color:INK}},
-  ],{x:8.0,y:2.6,w:4.7,h:3.5,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:INK,lineSpacingMultiple:1.3});
-  s.addNotes("偵察→盗聴→ポンプ奪取→設定改ざん→安全無効化→溢水。成功でフラグがレジスタに出る。設計図は渡さず自分で当てる。");
+    {text:"攻撃に成功すると",options:{color:INK}},{text:"フラグ",options:{bold:true,color:CY}},
+    {text:"がレジスタに出る。設計図は渡さず、観測して自分で当てる。",options:{color:INK,breakLine:true}},
+    {text:" ",options:{breakLine:true,fontSize:10}},
+    {text:"ボーナス: ",options:{bold:true,color:DANGER}},
+    {text:"溢水の証拠フラグ／保守バックドア",options:{color:INK}},
+  ],{x:8.0,y:2.5,w:4.7,h:3.6,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:INK,lineSpacingMultiple:1.3});
+  s.addNotes("偵察→盗聴→ポンプ奪取→設定改ざん→安全無効化。段位5で二重の安全が外れてタンクが溢れる＝目的達成。溢水の証拠フラグと保守バックドアはボーナス。");
 })();
 
 // ===== 8: ルール =====
