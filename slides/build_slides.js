@@ -179,7 +179,26 @@ function dot(s,x,y,color){ s.addShape(p.ShapeType.ellipse,{x,y,w:0.2,h:0.2,fill:
   s.addNotes("本編はAI禁止（自分で読み解く。Wireshark等の調べ物は可）。詰まったら司会にヒント。隔離ネット専用。");
 })();
 
-// ===== 9: 開始 =====
+// ===== 9: 今日使うツール =====
+(function(){ const s=slide(PAPER);
+  eyebrow(s,"今日使うツール");
+  title(s,"準備するのは、この3つ");
+  const tools=[
+    ["Python 3","攻撃ツール mbclient.py を動かす（追加ライブラリ不要）","入れ方: Windows は python.org（Add to PATH）/ Mac は標準 or brew"],
+    ["Wireshark","暗号化されていない通信を覗いて中身を見る","入れ方: wireshark.org（Mac: ChmodBPF / Win: Npcap も入れる）"],
+    ["Webブラウザ","問題とフラグ提出（CTFd）を開く","入れ方: 普段使っているものでOK"],
+  ];
+  tools.forEach((t,i)=>{ const y=2.2+i*1.32;
+    card(s,M,y,12.1,1.15);
+    s.addText(t[0],{x:M+0.35,y:y,w:3.3,h:1.15,isTextBox:true,valign:"middle",margin:0,fontFace:HF,fontSize:B,bold:true,color:CY});
+    s.addText([{text:t[1],options:{color:INK,breakLine:true}},{text:t[2],options:{color:MUTED}}],
+      {x:M+3.8,y:y,w:8.1,h:1.15,isTextBox:true,valign:"middle",margin:0,fontFace:BF,fontSize:D,lineSpacingMultiple:1.25}); });
+  s.addText("（任意）nmap … ポート探索をやりたい人向け。無くても進められます。",
+    {x:M,y:6.3,w:12,h:0.45,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:MUTED});
+  s.addNotes("今日使うのはPython3(mbclient用・追加ライブラリ不要)、Wireshark(通信を覗く)、ブラウザ(CTFd)。任意でnmap。Wiresharkのキャプチャ権限は事前に一度試しておくと安心。");
+})();
+
+// ===== 10: 開始 =====
 (function(){ const s=slide(NAVY);
   cover(s,HERO,0,0,SW,SH); scrim(s,0,0,SW,SH,"081320",55);
   s.addText("さあ、始めましょう".toUpperCase(),{x:M,y:0.6,w:12,h:0.35,isTextBox:true,margin:0,fontFace:HF,fontSize:EB,bold:true,color:CYBR,charSpacing:3});
