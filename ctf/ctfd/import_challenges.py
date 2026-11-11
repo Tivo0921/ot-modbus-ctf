@@ -75,8 +75,8 @@ CHALLENGES = [
          flag="FLAG{plaintext}", prereq=[],
          hints=["Wireshark で loopback(lo0)（本番は自分のNIC）をキャプチャ。表示フィルタ: tcp.port == 5020",
                 "ポート5020は非標準。パケット右クリック→Decode As→MODBUS で解釈できる（生のバイト列を見るだけでも可）。",
-                "read-hr で広い範囲（例: read-hr 0 100）を読んで通信を起こし、その応答のバイト列を見る。文字列は40番台にある。",
-                "応答パケットのASCIIに FLAG{...} が見える（Edit→Find Packet→String「FLAG」でも一発）。それを提出。"]),
+                "read-hr で広い範囲（例: read-hr 0 100）を読んで通信を起こす。文字列は40番台のレジスタにある。",
+                "表示フィルタに  frame contains \"FLAG\"  と入れるとFLAG入りパケットだけ残る。それをクリックし、右下のバイト列(ASCII)から FLAG{...} を読んで提出。"]),
     dict(key="pump", name="3. ポンプの乗っ取り — 装置を直接操作する", category="Modbus", value=100,
          desc=("制御装置のポンプは、本来は水位に応じて自動でオン・オフされます。"
                "ここでは、その自動制御を無視して、<b>あなたの操作でポンプを強制的にオンにして</b>ください。"

@@ -100,6 +100,13 @@ class Modbus:
         self._txn(body)
 
 
+def regs_to_ascii(vals):
+    b = bytearray()
+    for v in vals:
+        b.append(v >> 8); b.append(v & 0xFF)
+    return b.decode("ascii", "replace")
+
+
 def main():
     ap = argparse.ArgumentParser(description="薄い Modbus/TCP クライアント")
     ap.add_argument("--host", required=True)
@@ -109,6 +116,8 @@ def main():
     p = sub.add_parser("read-co"); p.add_argument("addr", type=int); p.add_argument("count", type=int, nargs="?", default=1)
     p = sub.add_parser("write-co"); p.add_argument("addr", type=int); p.add_argument("val", type=int)
     p = sub.add_parser("write-hr"); p.add_argument("addr", type=int); p.add_argument("val", type=int)
+    # 隠しフォールバック: Wireshark が無い人向け。ドキュメント・ヒントには載せない。
+    p = sub.add_parser("ascii"); p.add_argument("addr", type=int); p.add_argument("count", type=int)
     a = ap.parse_args()
     with Modbus(a.host, a.port) as c:
         if a.cmd == "read-hr":
@@ -119,6 +128,8 @@ def main():
             c.write_coil(a.addr, bool(a.val)); print("OK")
         elif a.cmd == "write-hr":
             c.write_register(a.addr, a.val); print("OK")
+        elif a.cmd == "ascii":  # 隠しフォールバック（非公開）
+            print(repr(regs_to_ascii(c.read_holding(a.addr, a.count))))
 
 
 if __name__ == "__main__":
