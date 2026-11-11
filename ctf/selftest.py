@@ -89,6 +89,12 @@ def main():
         lvl = c.read_holding(10,1)[0]/10
         print(f"[最終] 溢水={c.read_coils(7,1)[0]} 水位={lvl:.1f}% 目的達成フラグ: {win}  {status}")
 
+        # --- 偵察(盗聴): 40番台の隠し文字列フラグ ---
+        recon = regs_to_ascii(c.read_holding(40, 10)).split("\x00")[0]
+        exp_recon = "FLAG{plaintext}"
+        ok &= recon == exp_recon
+        print(f"[recon] 隠しフラグ@40: {recon}  {'OK' if recon==exp_recon else 'NG'}")
+
         # --- ボーナス: 手がかり(70番台)を読み→魔法値を書く→バックドアフラグ ---
         crumb = regs_to_ascii(c.read_holding(70, 12))
         print(f"[bonus] 手がかり@70: {crumb!r}")

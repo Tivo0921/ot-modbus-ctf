@@ -65,6 +65,11 @@ REG_MAGIC = 51                   # ここに MAGIC_VALUE を書くと開く
 MAGIC_VALUE = 4919               # 0x1337
 BREADCRUMB_TEXT = "WRITE 4919 TO REG51"
 
+# 偵察（段位2・盗聴）用の隠し文字列フラグ。最初から 40番台に ASCII で埋めてある。
+# 画面には出ず、全レジスタを文字列として読むと見つかる（推測不可・観察では取れない）。
+REG_RECON = 40                   # 40-47
+RECON_FLAG = "FLAG{plaintext}"
+
 # フラグを格納するレジスタ領域（達成するまでは 0。達成後に ASCII が出現）
 FLAG_SLOTS = {
     "pump":     100,   # 100-119
@@ -103,12 +108,15 @@ class Store:
             self.coils[CO_PUMP] = False
             self.coils[CO_SAFETY] = True
             self.coils[CO_OVERFLOW] = False
-            # ボーナス謎の手がかりを 70番台に ASCII で埋める
-            data = BREADCRUMB_TEXT.encode("ascii") + b"\x00"
-            for i in range(0, len(data), 2):
-                hi = data[i]
-                lo = data[i + 1] if i + 1 < len(data) else 0
-                self.regs[REG_BREADCRUMB + i // 2] = (hi << 8) | lo
+            # 文字列を ASCII でレジスタに埋める小関数（2バイト/レジスタ）
+            def _embed(base, text):
+                data = text.encode("ascii") + b"\x00"
+                for i in range(0, len(data), 2):
+                    hi = data[i]
+                    lo = data[i + 1] if i + 1 < len(data) else 0
+                    self.regs[base + i // 2] = (hi << 8) | lo
+            _embed(REG_RECON, RECON_FLAG)         # 偵察(盗聴)用の隠しフラグ 40番台
+            _embed(REG_BREADCRUMB, BREADCRUMB_TEXT)  # ボーナス謎の手がかり 70番台
 
     # 内部（制御ロジック）用: フラグ判定を起こさない
     def _set_reg(self, a, v): self.regs[a] = v & 0xFFFF
