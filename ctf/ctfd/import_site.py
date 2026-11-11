@@ -77,8 +77,8 @@ python3 mbclient.py --host <IP> read-co 0 16     # コイル 0〜15 を読む
 python3 mbclient.py --host <IP> write-co 5 1     # コイル5 を ON(1)/OFF(0)
 python3 mbclient.py --host <IP> write-hr 11 65535 # 保持レジスタ11 に値を書く
 python3 mbclient.py --host <IP> ascii 0 100      # レジスタ範囲を文字列化
-python3 mbclient.py --host <IP> watch 10 1       # 値の変化を監視
 ```
+値の変化（水位など）は `read-hr` を**何度も実行**して観察します。
 
 | コマンド | 意味 |
 |---|---|
@@ -87,7 +87,6 @@ python3 mbclient.py --host <IP> watch 10 1       # 値の変化を監視
 | `write-co <番号> <0/1>` | コイルを書く（ポンプ・安全装置） |
 | `write-hr <番号> <値>` | レジスタを書く（設定値の改ざん） |
 | `ascii <番号> <個数>` | レジスタを文字列化（隠しメッセージ探し） |
-| `watch <番号> <個数>` | 変化を 0.5 秒ごとに監視 |
 
 ## Wireshark で平文を見る
 1. Wireshark を起動し、自分のネットワーク（手元だけなら loopback）をキャプチャ。

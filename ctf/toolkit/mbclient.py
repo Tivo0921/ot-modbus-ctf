@@ -10,7 +10,7 @@ CLI の例:
   python3 mbclient.py --host 10.0.0.1 write-co 5 1     # コイル5 を ON(1)/OFF(0)
   python3 mbclient.py --host 10.0.0.1 write-hr 11 65535 # 保持レジスタ11 に値を書く
   python3 mbclient.py --host 10.0.0.1 ascii 0 200      # レジスタ範囲を ASCII 文字列化
-  python3 mbclient.py --host 10.0.0.1 watch 10 1       # レジスタの変化を監視
+  （水位などの変化は read-hr を繰り返し実行して観察する）
 
 ライブラリとして:
   from mbclient import Modbus
@@ -23,8 +23,6 @@ from __future__ import annotations
 import argparse
 import socket
 import struct
-import sys
-import time
 
 READ_COILS = 0x01
 READ_HOLDING = 0x03
@@ -120,7 +118,6 @@ def main():
     p = sub.add_parser("write-co"); p.add_argument("addr", type=int); p.add_argument("val", type=int)
     p = sub.add_parser("write-hr"); p.add_argument("addr", type=int); p.add_argument("val", type=int)
     p = sub.add_parser("ascii"); p.add_argument("addr", type=int); p.add_argument("count", type=int)
-    p = sub.add_parser("watch"); p.add_argument("addr", type=int); p.add_argument("count", type=int, nargs="?", default=1)
     a = ap.parse_args()
     with Modbus(a.host, a.port) as c:
         if a.cmd == "read-hr":
@@ -133,12 +130,6 @@ def main():
             c.write_register(a.addr, a.val); print("OK")
         elif a.cmd == "ascii":
             print(repr(regs_to_ascii(c.read_holding(a.addr, a.count))))
-        elif a.cmd == "watch":
-            try:
-                while True:
-                    print(c.read_holding(a.addr, a.count)); time.sleep(0.5)
-            except KeyboardInterrupt:
-                pass
 
 
 if __name__ == "__main__":
