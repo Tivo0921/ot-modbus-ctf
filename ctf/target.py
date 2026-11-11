@@ -75,8 +75,9 @@ FLAG_SLOTS = {
     "pump":     100,   # 100-119
     "setpoint": 120,   # 120-139
     "safety":   140,   # 140-159
-    "overflow": 160,   # 160-199  ← 目的達成のフラグ（最終）
-    "backdoor": 200,   # 200-219  ← ボーナス
+    "overflow": 160,   # 160-199  ← 段位5で溢水時に出る（目的達成）
+    "backdoor": 200,   # 200-219  ← ボーナス(保守バックドア)
+    "restore":  220,   # 220-239  ← ボーナス(復旧): 溢水後に安全な状態へ戻すと出る
 }
 FLAGS = {
     "pump":     "FLAG{pump_is_mine_coil_write}",
@@ -84,6 +85,7 @@ FLAGS = {
     "safety":   "FLAG{safety_interlock_bypassed}",
     "overflow": "FLAG{OVERFLOW__you_flooded_the_tank}",
     "backdoor": "FLAG{hidden_maintenance_backdoor}",
+    "restore":  "FLAG{restored_to_safe_state}",
 }
 REG_COUNT = 256
 COIL_COUNT = 64
@@ -96,6 +98,7 @@ class Store:
         self.regs = [0] * REG_COUNT
         self.coils = [False] * COIL_COUNT
         self.unlocked: set[str] = set()
+        self.compromised = False   # 一度でも溢水したら True（復旧ボーナスの前提）
 
     def init_normal(self) -> None:
         with self.lock:
@@ -163,11 +166,23 @@ def physics_step(s: Store) -> None:
         s._set_reg(HR_LEVEL, level)
         if level >= LEVEL_MAX:
             s._set_coil(CO_OVERFLOW, True)
+            s.compromised = True
             overflow = True
         else:
             overflow = False
     if overflow:
         s.unlock("overflow")
+
+
+def check_restore(s: Store) -> None:
+    """ボーナス(復旧): 一度溢水した装置を安全な状態に戻せたら解除。
+    条件: 安全IL=ON / 停止水位が到達可能(<=上限) / 溢水アラームがクリア済み。"""
+    with s.lock:
+        ok = (s.compromised and s._get_coil(CO_SAFETY)
+              and 0 < s._get_reg(HR_SETPOINT_HI) <= LEVEL_MAX
+              and not s._get_coil(CO_OVERFLOW))
+    if ok:
+        s.unlock("restore")
 
 
 def decoy_step(s: Store, t: int) -> None:
@@ -182,6 +197,7 @@ def scan_loop(s: Store, interval: float, stop: threading.Event) -> None:
     while not stop.is_set():
         control_logic(s)
         physics_step(s)
+        check_restore(s)
         decoy_step(s, t)
         t += 1
         if t % 8 == 0:

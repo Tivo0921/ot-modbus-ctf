@@ -162,7 +162,7 @@ function dot(s,x,y,color){ s.addShape(p.ShapeType.ellipse,{x,y,w:0.2,h:0.2,fill:
     {text:"がレジスタに出る。設計図は渡さず、観測して自分で当てる。",options:{color:INK,breakLine:true}},
     {text:" ",options:{breakLine:true,fontSize:10}},
     {text:"ボーナス: ",options:{bold:true,color:DANGER}},
-    {text:"溢水の証拠フラグ／保守バックドア",options:{color:INK}},
+    {text:"制御装置の復旧（防御）／保守バックドア",options:{color:INK}},
   ],{x:8.0,y:2.5,w:4.7,h:3.6,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:INK,lineSpacingMultiple:1.3});
   s.addNotes("偵察→盗聴→ポンプ奪取→設定改ざん→安全無効化。段位5で二重の安全が外れてタンクが溢れる＝目的達成。溢水の証拠フラグと保守バックドアはボーナス。");
 })();

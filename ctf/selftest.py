@@ -106,6 +106,19 @@ def main():
         ok &= bd == exp_bd
         print(f"[bonus] バックドアフラグ: {bd}  {status}")
 
+        # --- ボーナス(復旧): 溢水後、安全な状態に戻すとフラグ ---
+        c.write_coil(6, True)          # 安全IL 再有効化
+        c.write_register(11, 800)      # 停止水位を正常化
+        c.write_coil(7, False)         # 溢水アラームをクリア
+        rst = ""; t0 = time.time()
+        while time.time() - t0 < 6:
+            rst = regs_to_ascii(c.read_holding(220, 20)).split("\x00")[0]
+            if rst.startswith("FLAG"): break
+            time.sleep(0.2)
+        exp_rst = "FLAG{restored_to_safe_state}"
+        ok &= rst == exp_rst
+        print(f"[bonus] 復旧フラグ@220: {rst}  {'OK' if rst==exp_rst else 'NG'}")
+
         # --- 例外応答(不正アドレス) ---
         try:
             c.read_holding(9999, 1); print("[exc ] NG: 例外が返らない"); ok = False
