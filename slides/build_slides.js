@@ -217,5 +217,40 @@ function dot(s,x,y,color){ s.addShape(p.ShapeType.ellipse,{x,y,w:0.2,h:0.2,fill:
   s.addNotes("CTFdは司会のIP:8000、制御装置は:5020。まずmbclientで保持レジスタを読む。ここから偵察へ。");
 })();
 
+// ===== 11: インストール手順（付録・困ったとき用） =====
+(function(){ const s=slide(PAPER);
+  eyebrow(s,"付録：インストール手順");
+  title(s,"困ったときはこのコマンドで");
+  const MONO="Courier New";
+  // 左: Python
+  card(s,M,2.2,5.85,4.7);
+  s.addText([
+    {text:"Python 3",options:{bold:true,color:CY,breakLine:true}},
+    {text:"mbclient.py を動かすため",options:{color:MUTED,breakLine:true}},
+    {text:" ",options:{breakLine:true,fontSize:8}},
+    {text:"Mac:  ",options:{color:INK}},{text:"brew install python",options:{fontFace:MONO,color:INK,breakLine:true}},
+    {text:"Win:  ",options:{color:INK}},{text:"winget install Python.Python.3.12",options:{fontFace:MONO,color:INK,breakLine:true}},
+    {text:"      （python.org は「Add to PATH」に✓）",options:{color:MUTED,breakLine:true}},
+    {text:"Linux: ",options:{color:INK}},{text:"sudo apt install python3",options:{fontFace:MONO,color:INK,breakLine:true}},
+    {text:" ",options:{breakLine:true,fontSize:8}},
+    {text:"確認: ",options:{color:INK}},{text:"python3 --version",options:{fontFace:MONO,color:INK}},
+  ],{x:M+0.35,y:2.45,w:5.2,h:4.3,isTextBox:true,margin:0,fontFace:BF,fontSize:D,lineSpacingMultiple:1.3});
+  // 右: Wireshark + nmap
+  card(s,M+6.25,2.2,5.85,4.7);
+  s.addText([
+    {text:"Wireshark",options:{bold:true,color:CY,breakLine:true}},
+    {text:"通信を覗くため",options:{color:MUTED,breakLine:true}},
+    {text:" ",options:{breakLine:true,fontSize:8}},
+    {text:"Mac:  ",options:{color:INK}},{text:"brew install --cask wireshark",options:{fontFace:MONO,color:INK,breakLine:true}},
+    {text:"Win:  wireshark.org の installer",options:{color:INK,breakLine:true}},
+    {text:"      （Npcap も一緒に入れる）",options:{color:MUTED,breakLine:true}},
+    {text:" ",options:{breakLine:true,fontSize:10}},
+    {text:"nmap（任意）",options:{bold:true,color:CY,breakLine:true}},
+    {text:"Mac:  ",options:{color:INK}},{text:"brew install nmap",options:{fontFace:MONO,color:INK,breakLine:true}},
+    {text:"Win:  ",options:{color:INK}},{text:"winget install Insecure.Nmap",options:{fontFace:MONO,color:INK}},
+  ],{x:M+6.6,y:2.45,w:5.2,h:4.3,isTextBox:true,margin:0,fontFace:BF,fontSize:D,lineSpacingMultiple:1.3});
+  s.addNotes("インストールに困った人向けの付録。Python3はmbclient用。Wiresharkは通信観察（Mac:ChmodBPF/Win:Npcap）。nmapは任意。");
+})();
+
 const OUT = process.env.OUT || "ot-intro.pptx";
 p.writeFile({ fileName: OUT }).then(f=>console.log("wrote",f));
