@@ -54,9 +54,12 @@ CTFd を `up -d` した直後（**まだ /setup していない状態**）に:
 ```bash
 python3 import_challenges.py          # --url http://localhost:8000 が既定
 # 管理者 admin / otctf-admin、全7問（6本編＋ボーナス）を全表示・ロックなしで登録
+python3 import_site.py                # 「はじめに」ページ＋mbclient.pyダウンロードを登録
+# → 参加者はブラウザ(CTFd)だけで、ツール入手・使い方・接続先・ルールが揃う（ファイル配布不要）
 ```
 
-作り直すとき: `docker compose down && rm -rf ctfd-data && docker compose up -d` の後に再実行。
+作り直すとき: `docker compose down && rm -rf ctfd-data && docker compose up -d` の後に
+`import_challenges.py` → `import_site.py` の順で再実行。
 
 **手動**: `challenges.md` の各問を **Admin > Challenges > + Create** から入力（説明・フラグ・
 ヒント4段）。自動登録が使えないときの保険。
