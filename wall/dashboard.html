@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OT-CTF 水槽ウォール</title>
+<style>
+  html,body{margin:0;height:100%;background:#070b12;overflow:hidden;
+    font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;color:#dce6f2}
+  #c{display:block;width:100%;height:100%}
+  #hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;
+    align-items:center;padding:14px 22px;pointer-events:none}
+  #hud h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.04em}
+  #hud h1 small{color:#46d0ef;font-weight:700}
+  #legend{font-size:13px;color:#9db1c6}
+  #legend b{color:#46d0ef} #legend .d{color:#ff5c73}
+  #err{position:fixed;bottom:10px;left:22px;font-size:12px;color:#ff8da1}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <h1>OT-CTF <small>水槽ウォール</small></h1>
+  <div id="legend">各水槽＝参加者1人分。<b>青=正常</b> ／ <span class="d">赤＝安全無効 or 溢水</span>。満水で溢れます。</div>
+</div>
+<div id="err"></div>
+<script src="vendor/three.min.js"></script>
+<script>
+(function(){
+const T=THREE;
+if(!T){document.getElementById('err').textContent='three.js の読み込みに失敗';return;}
+const cv=document.getElementById('c');
+const renderer=new T.WebGLRenderer({canvas:cv,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new T.Scene();
+scene.background=new T.Color(0x070b12);
+scene.fog=new T.Fog(0x070b12,30,80);
+const camera=new T.PerspectiveCamera(40,1,0.1,300);
+scene.add(new T.AmbientLight(0x4a5c74,0.9));
+const key=new T.DirectionalLight(0xbfe0ff,1.0); key.position.set(6,14,10); scene.add(key);
+const rim=new T.DirectionalLight(0x1a8fb5,0.5); rim.position.set(-8,4,-6); scene.add(rim);
+
+const TANK_R=0.95, TANK_H=3.0, SPX=3.1, SPZ=5.2;
+let tanks=[], cols=1, rows=1;
+
+function dropTex(){const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');
+  const g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(190,235,255,1)');
+  g.addColorStop(.5,'rgba(90,185,255,.7)');g.addColorStop(1,'rgba(40,120,220,0)');
+  x.fillStyle=g;x.fillRect(0,0,64,64);return new T.CanvasTexture(c);}
+const DROP=dropTex();
+
+function makeLabel(){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=128;
+  const tex=new T.CanvasTexture(cv);tex.anisotropy=4;
+  const spr=new T.Sprite(new T.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.scale.set(3.0,1.5,1);
+  return {cv,ctx:cv.getContext('2d'),tex,spr};
+}
+function drawLabel(L,title,pct,status,color){
+  const x=L.ctx;x.clearRect(0,0,256,128);
+  x.fillStyle='rgba(10,18,28,.0)';x.fillRect(0,0,256,128);
+  x.textAlign='center';
+  x.fillStyle='#dce6f2';x.font='bold 30px sans-serif';x.fillText(title,128,34);
+  x.fillStyle=color;x.font='bold 46px sans-serif';x.fillText(pct,128,82);
+  x.fillStyle=color;x.font='bold 22px sans-serif';x.fillText(status,128,112);
+  L.tex.needsUpdate=true;
+}
+
+function makeTank(i){
+  const g=new T.Group();
+  // base
+  const base=new T.Mesh(new T.CylinderGeometry(TANK_R*1.15,TANK_R*1.2,0.25,32),
+    new T.MeshStandardMaterial({color:0x16222f,roughness:.7,metalness:.3}));
+  base.position.y=0.12; g.add(base);
+  // glass shell (faint)
+  const shell=new T.Mesh(new T.CylinderGeometry(TANK_R,TANK_R,TANK_H,36,1,true),
+    new T.MeshStandardMaterial({color:0x9fd8ff,transparent:true,opacity:0.1,roughness:.1,
+      metalness:0,side:T.DoubleSide}));
+  shell.position.y=0.25+TANK_H/2; g.add(shell);
+  // water
+  const water=new T.Mesh(new T.CylinderGeometry(TANK_R*0.94,TANK_R*0.94,1,32),
+    new T.MeshStandardMaterial({color:0x2aa6ff,transparent:true,opacity:0.92,roughness:.25,
+      emissive:0x0a3350,emissiveIntensity:.5}));
+  g.add(water);
+  // rim ring
+  const ring=new T.Mesh(new T.TorusGeometry(TANK_R,0.05,10,40),
+    new T.MeshBasicMaterial({color:0x46d0ef}));
+  ring.rotation.x=Math.PI/2; ring.position.y=0.25+TANK_H; g.add(ring);
+  // puddle
+  const pud=new T.Mesh(new T.CircleGeometry(1,28),
+    new T.MeshBasicMaterial({color:0x2a7fd6,transparent:true,opacity:0.5}));
+  pud.rotation.x=-Math.PI/2; pud.position.y=0.02; pud.scale.set(0.001,0.001,0.001); g.add(pud);
+  // splash points
+  const N=40, pos=new Float32Array(N*3), vel=new Float32Array(N*3);
+  const pg=new T.BufferGeometry(); pg.setAttribute('position',new T.BufferAttribute(pos,3));
+  const pts=new T.Points(pg,new T.PointsMaterial({size:0.3,map:DROP,transparent:true,
+    depthWrite:false,blending:T.AdditiveBlending,color:0x9fdcff}));
+  g.add(pts);
+  const L=makeLabel(); L.spr.scale.set(2.3,1.15,1); L.spr.position.y=0.25+TANK_H+0.75; g.add(L.spr);
+  scene.add(g);
+  return {g,water,ring,pud,pts,pos,vel,N,si:0,L,level:0,shownLevel:0,overflow:false,safety:true,
+    base:base};
+}
+
+function layout(n){
+  cols=Math.min(n,4); rows=Math.ceil(n/cols);     // 1行は最大4つ。奥行きの行は少なく
+  const w=(cols-1)*SPX, d=(rows-1)*SPZ;
+  tanks.forEach((t,i)=>{ const r=Math.floor(i/cols), c=i%cols;
+    t.g.position.set(c*SPX-w/2, 0, r*SPZ-d/2); });
+  // カメラ: 行が増えるほど高く・俯角を強くして前後の重なりを防ぐ
+  const y=7+d*1.05, z=d*0.35+Math.max(w*0.6,7)+9;
+  camera.position.set(0, y, z);
+  camera.lookAt(0, 1.0, 0);
+}
+
+let floor;
+function ensureFloor(){ if(floor)return;
+  floor=new T.Mesh(new T.PlaneGeometry(200,200),
+    new T.MeshStandardMaterial({color:0x0b131d,roughness:.6,metalness:.3}));
+  floor.rotation.x=-Math.PI/2; scene.add(floor);
+  const grid=new T.GridHelper(200,100,0x12304a,0x0d1f30); grid.position.y=0.01; scene.add(grid);
+}
+
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);
+  camera.aspect=w/h;camera.updateProjectionMatrix();}
+addEventListener('resize',resize); resize(); ensureFloor();
+
+// ---- data ----
+let state={tanks:[]};
+async function poll(){
+  try{
+    const r=await fetch('state',{cache:'no-store'});
+    state=await r.json();
+    document.getElementById('err').textContent='';
+    sync();
+  }catch(e){ document.getElementById('err').textContent='ブリッジに接続できません（wall.py を起動してください）'; }
+}
+function sync(){
+  const n=state.tanks.length;
+  if(n && tanks.length!==n){
+    tanks.forEach(t=>scene.remove(t.g)); tanks=[];
+    for(let i=0;i<n;i++) tanks.push(makeTank(i));
+    layout(n);
+  }
+  state.tanks.forEach((d,i)=>{ const t=tanks[i]; if(!t)return;
+    t.level=Math.max(0,Math.min(100,d.level)); t.overflow=!!d.overflow; t.safety=d.safety!==false;
+    t.title=d.label||('P'+(i+1)); t.port=d.port; });
+}
+setInterval(poll, 250); poll();
+
+// ---- render ----
+let last=performance.now();
+function tick(now){
+  requestAnimationFrame(tick);
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  tanks.forEach(t=>{
+    t.shownLevel += (t.level - t.shownLevel)*Math.min(1,dt*6);
+    const h=Math.max(0.02,(t.shownLevel/100)*TANK_H);
+    t.water.scale.y=h; t.water.position.y=0.25+h/2;
+    const danger = t.overflow || !t.safety;
+    const dz = t.overflow?1:Math.max(0,(t.shownLevel-85)/15);
+    t.water.material.color.setRGB(0.16+dz*0.7,0.65-dz*0.45,1.0-dz*0.7);
+    t.ring.material.color.setHex(danger?0xff3b5c:0x46d0ef);
+    // splash when near/over top
+    if(t.shownLevel>=97){ for(let k=0;k<2;k++){ const a=Math.random()*Math.PI*2, r=TANK_R*0.95;
+      const idx=t.si*3; t.si=(t.si+1)%t.N;
+      t.pos[idx]=t.g.position.x+Math.cos(a)*r; t.pos[idx+1]=0.25+TANK_H; t.pos[idx+2]=t.g.position.z+Math.sin(a)*r;
+      t.vel[idx]=Math.cos(a)*0.04; t.vel[idx+1]=0.03+Math.random()*0.03; t.vel[idx+2]=Math.sin(a)*0.04; }
+      const ps=Math.min(2.2,t.pud.scale.x+dt*0.8); t.pud.scale.set(ps,ps,ps); t.pud.material.opacity=0.55;
+    } else { if(t.pud.scale.x>0.01){ const ps=Math.max(0.001,t.pud.scale.x-dt*0.5); t.pud.scale.set(ps,ps,ps);} }
+    for(let n2=0;n2<t.N;n2++){ const k=n2*3;
+      if(t.pos[k+1]<=0.26 && t.vel[k+1]===0) continue;
+      if(t.pos[k+1]<=0.26){ t.vel[k+1]=0; t.pos[k+1]=0.26; continue; }
+      t.vel[k+1]-=0.0022; t.pos[k]+=t.vel[k]; t.pos[k+1]+=t.vel[k+1]; t.pos[k+2]+=t.vel[k+2]; }
+    t.pts.geometry.attributes.position.needsUpdate=true;
+    // label
+    const col = t.overflow?'#ff5c73':(!t.safety?'#ffb020':'#46d0ef');
+    const status = t.overflow?'溢水!':(!t.safety?'安全OFF':'正常');
+    drawLabel(t.L, (t.title||'')+(t.port?('  '+t.port):''), t.shownLevel.toFixed(0)+'%', status, col);
+  });
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
