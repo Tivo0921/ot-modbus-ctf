@@ -9,8 +9,8 @@ CLI の例:
   python3 mbclient.py --host 10.0.0.1 read-co 0 16     # コイル 0..15 を読む
   python3 mbclient.py --host 10.0.0.1 write-co 5 1     # コイル5 を ON(1)/OFF(0)
   python3 mbclient.py --host 10.0.0.1 write-hr 11 65535 # 保持レジスタ11 に値を書く
-  python3 mbclient.py --host 10.0.0.1 ascii 0 200      # レジスタ範囲を ASCII 文字列化
   （水位などの変化は read-hr を繰り返し実行して観察する）
+  （通信の中身・隠し文字列は Wireshark でパケットのバイト列を見る）
 
 ライブラリとして:
   from mbclient import Modbus
@@ -100,14 +100,6 @@ class Modbus:
         self._txn(body)
 
 
-def regs_to_ascii(vals: list[int]) -> str:
-    b = bytearray()
-    for v in vals:
-        b.append(v >> 8)
-        b.append(v & 0xFF)
-    return b.decode("ascii", "replace")
-
-
 def main():
     ap = argparse.ArgumentParser(description="薄い Modbus/TCP クライアント")
     ap.add_argument("--host", required=True)
@@ -117,7 +109,6 @@ def main():
     p = sub.add_parser("read-co"); p.add_argument("addr", type=int); p.add_argument("count", type=int, nargs="?", default=1)
     p = sub.add_parser("write-co"); p.add_argument("addr", type=int); p.add_argument("val", type=int)
     p = sub.add_parser("write-hr"); p.add_argument("addr", type=int); p.add_argument("val", type=int)
-    p = sub.add_parser("ascii"); p.add_argument("addr", type=int); p.add_argument("count", type=int)
     a = ap.parse_args()
     with Modbus(a.host, a.port) as c:
         if a.cmd == "read-hr":
@@ -128,8 +119,6 @@ def main():
             c.write_coil(a.addr, bool(a.val)); print("OK")
         elif a.cmd == "write-hr":
             c.write_register(a.addr, a.val); print("OK")
-        elif a.cmd == "ascii":
-            print(repr(regs_to_ascii(c.read_holding(a.addr, a.count))))
 
 
 if __name__ == "__main__":
