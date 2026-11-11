@@ -1,4 +1,6 @@
 // OTセキュリティ入門 前半スライド（AI生成画像入り・PowerPoint生成）
+// 文字サイズ原則: タイトル44 / 本文28 / 詳細18 / 参考9（全スライドで統一）
+// 矢印はブロック矢印シェイプで描く（line+矢じりは崩れるため不可）
 // 実行: OUT=<出力先> IMG=<画像ディレクトリ> node build_slides.js
 const pptxgen = require("pptxgenjs");
 const p = new pptxgen();
@@ -6,238 +8,194 @@ p.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 inch
 p.author = "OT Security WS";
 
 const IMG = process.env.IMG || "/Users/shunikeda/gitClones/ot-lab/ws1-ctf/slides/img";
-const HERO = IMG + "/hero_overflow.png";       // 溢水タンク
-const ROOM = IMG + "/control_room.png";        // 制御盤/PLC/ネットワーク
-const LOCK = IMG + "/security_breach.png";     // 破られた施錠
+const HERO = IMG + "/hero_overflow.png";
+const ROOM = IMG + "/control_room.png";
+const LOCK = IMG + "/security_breach.png";
 
 // ---- 配色 ----
 const NAVY="0E1A2B", NAVY2="16273B", INK="1A2432", CY="117E9B", CYBR="46D0EF",
-      DANGER="D6334C", GREEN="1F9E6B", MUTED="6B7A8D", MUTED_D="C3D2E2",
+      DANGER="D6334C", MUTED="6B7A8D", MUTED_D="C3D2E2",
       CARD="EEF3F7", CARDLINE="DCE6EE", WHITE="FFFFFF", PAPER="FFFFFF";
 const HF="Calibri", BF="Calibri";
+// ---- 文字サイズ（原則）----
+const T=44, EB=18, B=28, D=18, REF=9;
 const M=0.62, SW=13.33, SH=7.5;
 
 function slide(bg){ const s=p.addSlide(); s.background={color:bg||PAPER}; return s; }
 function cover(s,img,x,y,w,h){ s.addImage({path:img,x,y,w,h,sizing:{type:"cover",w,h}}); }
 function scrim(s,x,y,w,h,color,tr){ s.addShape(p.ShapeType.rect,{x,y,w,h,
   fill:{color:color||NAVY,transparency:tr==null?45:tr},line:{type:"none"}}); }
-function eyebrow(s,t,dark){ s.addText(t.toUpperCase(),{x:M,y:0.42,w:12,h:0.3,isTextBox:true,margin:0,
-  fontFace:HF,fontSize:12,bold:true,color:dark?CYBR:CY,charSpacing:3}); }
-function title(s,runs,dark){ s.addText(runs,{x:M,y:0.72,w:12.1,h:1.0,isTextBox:true,margin:0,
-  fontFace:HF,fontSize:32,bold:true,color:dark?WHITE:INK,lineSpacingMultiple:1.02}); }
-function card(s,x,y,w,h,dark,fillOver,tr){ s.addShape(p.ShapeType.roundRect,{x,y,w,h,
-  rectRadius:0.09, fill:{color:fillOver||(dark?NAVY2:CARD),transparency:tr==null?0:tr},
-  line:{color:dark?"243B52":CARDLINE,width:1}}); }
-function arrow(s,x1,y1,x2,y2,color){ s.addShape(p.ShapeType.line,{x:x1,y:y1,w:x2-x1,h:y2-y1,
-  line:{color:color||MUTED,width:2.5,endArrowType:"triangle"}}); }
+function eyebrow(s,t,dark){ s.addText(t.toUpperCase(),{x:M,y:0.45,w:12,h:0.35,isTextBox:true,margin:0,
+  fontFace:HF,fontSize:EB,bold:true,color:dark?CYBR:CY,charSpacing:3}); }
+function title(s,runs,dark){ s.addText(runs,{x:M,y:0.92,w:12.1,h:1.2,isTextBox:true,margin:0,
+  fontFace:HF,fontSize:T,bold:true,color:dark?WHITE:INK,lineSpacingMultiple:1.0}); }
+function card(s,x,y,w,h,fill,tr,linecol){ s.addShape(p.ShapeType.roundRect,{x,y,w,h,
+  rectRadius:0.08, fill:{color:fill||CARD,transparency:tr==null?0:tr},
+  line:{color:linecol||CARDLINE,width:1}}); }
+// ブロック矢印（塗り・線なし）。dir: "right"|"left"
+function barrow(s,x,y,w,h,dir,color){ s.addShape(dir==="left"?p.ShapeType.leftArrow:p.ShapeType.rightArrow,
+  {x,y,w,h,fill:{color:color||MUTED},line:{type:"none"}}); }
+function dot(s,x,y,color){ s.addShape(p.ShapeType.ellipse,{x,y,w:0.2,h:0.2,fill:{color:color||CY},line:{type:"none"}}); }
 
-// ===== Slide 1: タイトル（溢水画像フルブリード） =====
+// ===== 1: タイトル =====
 (function(){ const s=slide(NAVY);
-  cover(s,HERO,0,0,SW,SH);
-  scrim(s,0,0,SW,SH,"081320",40);
-  scrim(s,0,0,7.6,SH,"081320",25);
-  s.addText("OTセキュリティ入門ハンズオン",{x:M,y:1.1,w:7,h:0.4,isTextBox:true,margin:0,
-    fontFace:HF,fontSize:13,bold:true,color:CYBR,charSpacing:3});
+  cover(s,HERO,0,0,SW,SH); scrim(s,0,0,SW,SH,"081320",38); scrim(s,0,0,7.8,SH,"081320",28);
+  s.addText("OTセキュリティ入門ハンズオン",{x:M,y:1.0,w:7.2,h:0.45,isTextBox:true,margin:0,
+    fontFace:HF,fontSize:EB,bold:true,color:CYBR,charSpacing:3});
   s.addText([
-    {text:"産業用通信 ",options:{color:WHITE}},
-    {text:"Modbus",options:{color:CYBR}},
+    {text:"産業用通信 ",options:{color:WHITE}},{text:"Modbus",options:{color:CYBR}},
     {text:" で\n制御装置を乗っ取る",options:{color:WHITE}},
-  ],{x:M,y:1.7,w:7.2,h:2.2,isTextBox:true,margin:0,fontFace:HF,fontSize:42,bold:true,
+  ],{x:M,y:1.6,w:7.3,h:2.3,isTextBox:true,margin:0,fontFace:HF,fontSize:T,bold:true,
     lineSpacingMultiple:1.05,shadow:{type:"outer",color:"000000",opacity:0.5,blur:6,offset:2,angle:90}});
-  s.addText("認証のない制御通信を使って、水のタンクを実際にあふれさせるまでを体験します。",
-    {x:M,y:4.2,w:6.7,h:1.0,isTextBox:true,margin:0,fontFace:BF,fontSize:17,color:MUTED_D,lineSpacingMultiple:1.2});
-  s.addText("前半 10分 基礎説明   ／   後半 50分 演習（CTF形式）",
-    {x:M,y:6.7,w:9,h:0.4,isTextBox:true,margin:0,fontFace:BF,fontSize:13,color:"9DB1C6"});
-  s.addNotes("導入。産業用プロトコルModbusで制御装置を乗っ取り、タンクをあふれさせる攻撃を自分の手で体験する。前半10分で基礎、後半50分で演習。");
+  s.addText("認証のない制御通信で、\nタンクを実際にあふれさせる体験。",
+    {x:M,y:4.3,w:7.0,h:1.5,isTextBox:true,margin:0,fontFace:BF,fontSize:B,color:MUTED_D,lineSpacingMultiple:1.15});
+  s.addText("前半 10分 基礎説明　／　後半 50分 演習（CTF形式）",
+    {x:M,y:6.6,w:10,h:0.4,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:"9DB1C6"});
+  s.addNotes("導入。Modbusで制御装置を乗っ取りタンクをあふれさせる体験。前半10分基礎、後半50分演習。");
 })();
 
-// ===== Slide 2: ゴール（結論先頭・ダーク） =====
+// ===== 2: ゴール =====
 (function(){ const s=slide(NAVY);
   eyebrow(s,"今日のゴール",true);
   s.addText([
-    {text:"攻撃を自分の手で体験し、\n",options:{color:WHITE}},
-    {text:"なぜ防げないのか",options:{color:CYBR}},
+    {text:"攻撃を体験し、\n",options:{color:WHITE}},
+    {text:"なぜ防げないか",options:{color:CYBR}},
     {text:"を理解する",options:{color:WHITE}},
-  ],{x:M,y:1.3,w:12,h:1.7,isTextBox:true,margin:0,fontFace:HF,fontSize:36,bold:true,lineSpacingMultiple:1.05});
-  card(s,M,3.3,12.1,1.2,true,"102033");
+  ],{x:M,y:1.25,w:12,h:1.9,isTextBox:true,margin:0,fontFace:HF,fontSize:T,bold:true,lineSpacingMultiple:1.03});
+  card(s,M,3.5,12.1,1.15,"102033",0,"243B52");
   s.addText([
-    {text:"やること:  ",options:{bold:true,color:WHITE}},
-    {text:"認証のない産業用通信を使って、タンクを",options:{color:WHITE}},
+    {text:"やること：",options:{bold:true,color:WHITE}},
+    {text:"タンクを",options:{color:WHITE}},
     {text:"あふれさせる",options:{bold:true,color:"FF8DA1"}},
-    {text:"。",options:{color:WHITE}},
-  ],{x:M+0.3,y:3.3,w:11.5,h:1.2,isTextBox:true,margin:0,valign:"middle",fontFace:BF,fontSize:21});
-  const items=[
-    ["攻撃対象","貯液タンクの水位を自動制御する制御装置（PLC）のシミュレータ"],
-    ["設計図は渡さない","どの番号が何を表すかは、読み書きしながら自分で解き明かす"],
-    ["最後に","「どう防ぐか」をみんなで考える"],
-  ];
-  items.forEach((it,i)=>{ const y=4.9+i*0.72;
-    s.addShape(p.ShapeType.ellipse,{x:M,y:y+0.05,w:0.18,h:0.18,fill:{color:CYBR},line:{type:"none"}});
-    s.addText([{text:it[0]+"  ",options:{bold:true,color:WHITE}},{text:it[1],options:{color:MUTED_D}}],
-      {x:M+0.4,y:y-0.08,w:11.5,h:0.5,isTextBox:true,margin:0,fontFace:BF,fontSize:16});
-  });
-  s.addNotes("結論を先に。目的は『なぜ防げないか』を理解すること。対象はPLCシミュレータ。設計図は渡さず自分で解く。最後に防御を議論する。");
+  ],{x:M+0.35,y:3.5,w:11.4,h:1.15,isTextBox:true,margin:0,valign:"middle",fontFace:BF,fontSize:B});
+  const items=["攻撃対象：制御装置（PLC）のシミュレータ","設計図は渡さない — 自分で解く","最後に「どう防ぐか」を考える"];
+  items.forEach((t,i)=>{ const y=5.05+i*0.72; dot(s,M,y+0.07,CYBR);
+    s.addText(t,{x:M+0.42,y:y-0.08,w:11.4,h:0.55,isTextBox:true,margin:0,fontFace:BF,fontSize:B,color:WHITE}); });
+  s.addNotes("結論先行。目的は『なぜ防げないか』の理解。対象はPLCシミュレータ。設計図は渡さず自分で解く。最後に防御を議論。");
 })();
 
-// ===== Slide 3: 制御の仕組み（制御盤画像） =====
+// ===== 3: 制御の仕組み =====
 (function(){ const s=slide(PAPER);
   eyebrow(s,"まず、制御の仕組み");
-  title(s,"制御装置（PLC）がタンクの水位を自動で保つ");
-  cover(s,ROOM,7.0,1.95,5.75,4.9);
+  title(s,"制御装置がタンクの水位を自動で保つ");
+  cover(s,ROOM,7.15,2.35,5.55,4.45);
   s.addText([
-    {text:"制御装置（PLC）は、タンクの水位を読み、給水ポンプをオン・オフして水位を一定に保ちます。",
-      options:{breakLine:true,color:INK}},
-    {text:" ",options:{breakLine:true,fontSize:8}},
-    {text:"・停止水位",options:{bold:true,color:CY}},
-    {text:"に達したらポンプを止め、低い水位で動かす。",options:{color:INK,breakLine:true}},
-    {text:"・安全インターロック",options:{bold:true,color:CY}},
-    {text:"：危険域でポンプを強制停止する「最後の砦」。",options:{color:INK}},
-  ],{x:M,y:2.4,w:6.0,h:4.0,isTextBox:true,margin:0,fontFace:BF,fontSize:18,lineSpacingMultiple:1.4});
-  s.addText("後半では、この制御装置そのものを攻撃します。",
-    {x:M,y:6.1,w:6.0,h:0.5,isTextBox:true,margin:0,fontFace:BF,fontSize:14,italic:true,color:MUTED});
-  s.addNotes("制御の基本。PLCが水位を読みポンプをオンオフして水位を保つ。停止水位と、危険域で止める安全インターロックの二重の守り。これが攻撃対象になる。");
+    {text:"PLCが水位を読み、ポンプをオン・オフして\n水位を一定に保つ。",options:{color:INK,breakLine:true}},
+  ],{x:M,y:2.5,w:6.1,h:1.6,isTextBox:true,margin:0,fontFace:BF,fontSize:B,lineSpacingMultiple:1.2});
+  const b=["停止水位でポンプを止める","安全インターロックで強制停止"];
+  b.forEach((t,i)=>{ const y=4.3+i*0.95; dot(s,M,y+0.08,CY);
+    s.addText(t,{x:M+0.42,y:y-0.1,w:6.0,h:0.8,isTextBox:true,margin:0,fontFace:BF,fontSize:B,color:INK,lineSpacingMultiple:1.1}); });
+  s.addText("後半は、この制御装置を攻撃します。",
+    {x:M,y:6.3,w:6.1,h:0.5,isTextBox:true,margin:0,fontFace:BF,fontSize:D,italic:true,color:MUTED});
+  s.addNotes("PLCが水位を読みポンプを制御。停止水位と安全インターロックの二重の守り。これが攻撃対象。");
 })();
 
-// ===== Slide 4: Modbusとは（データモデル・クリーン） =====
+// ===== 4: Modbusとは =====
 (function(){ const s=slide(PAPER);
   eyebrow(s,"通信のことば");
-  title(s,"Modbus — 産業機器の事実上の標準プロトコル");
-  const ly=2.9;
-  card(s,0.9,ly,2.7,1.5);
-  s.addText("攻撃者\n/ 監視端末",{x:0.9,y:ly,w:2.7,h:1.5,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:15,bold:true,color:INK});
-  card(s,5.0,ly,2.7,1.5);
-  s.addText("制御装置",{x:5.0,y:ly,w:2.7,h:1.5,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:15,bold:true,color:INK});
-  arrow(s,3.6,ly+0.55,5.0,ly+0.55,CY);
-  s.addText("「○番を読め / 書け」",{x:3.3,y:ly+0.12,w:2.0,h:0.3,isTextBox:true,align:"center",fontFace:BF,fontSize:10,color:MUTED});
-  arrow(s,5.0,ly+1.05,3.6,ly+1.05,MUTED);
-  s.addText("値を返す",{x:3.3,y:ly+1.08,w:2.0,h:0.3,isTextBox:true,align:"center",fontFace:BF,fontSize:10,color:MUTED});
-  card(s,8.2,2.5,4.5,3.2);
-  s.addText("データの持ち方",{x:8.5,y:2.7,w:4,h:0.4,isTextBox:true,fontFace:BF,fontSize:15,bold:true,color:CY});
+  title(s,"Modbus — 産業の標準プロトコル");
+  // 左: やり取り
+  card(s,0.7,2.9,3.1,1.3);
+  s.addText("攻撃者",{x:0.7,y:2.9,w:3.1,h:1.3,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:B,bold:true,color:INK});
+  card(s,5.4,2.9,3.1,1.3);
+  s.addText("制御装置",{x:5.4,y:2.9,w:3.1,h:1.3,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:B,bold:true,color:INK});
+  barrow(s,3.95,3.35,1.3,0.42,"right",CY);
+  s.addText("読め / 書け",{x:3.5,y:2.5,w:2.2,h:0.35,isTextBox:true,align:"center",margin:0,fontFace:BF,fontSize:D,color:MUTED});
+  s.addText("制御装置は要求に答えて値を返す（すべて平文）。",
+    {x:0.7,y:4.5,w:7.8,h:0.9,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:INK,lineSpacingMultiple:1.2});
+  // 右: データモデル
+  card(s,8.9,2.5,3.8,3.9);
+  s.addText("データの持ち方",{x:9.2,y:2.75,w:3.3,h:0.5,isTextBox:true,margin:0,fontFace:BF,fontSize:B,bold:true,color:CY});
   s.addText([
-    {text:"コイル",options:{bold:true,color:INK}},
-    {text:" = オン/オフの1ビット（例: ポンプ）",options:{color:INK,breakLine:true}},
-    {text:"レジスタ",options:{bold:true,color:INK}},
-    {text:" = 16ビットの数値（例: 水位・設定値）",options:{color:INK,breakLine:true}},
-    {text:" ",options:{breakLine:true,fontSize:8}},
-    {text:"番号付きの「記憶の棚」を読み書きするだけ。",options:{color:MUTED}},
-  ],{x:8.5,y:3.2,w:4.0,h:2.2,isTextBox:true,margin:0,fontFace:BF,fontSize:15,lineSpacingMultiple:1.35});
-  s.addText([{text:"ポート: ",options:{color:MUTED}},{text:"502（今回は 5020）",options:{bold:true,color:CY}}],
-    {x:8.5,y:5.05,w:4,h:0.4,isTextBox:true,margin:0,fontFace:BF,fontSize:14});
-  s.addNotes("Modbusは産業の標準。依頼側が『何番を読め/書け』と送り機器が答えるだけ。データはコイル(オンオフ)とレジスタ(数値)。ポートは502、今回は5020。");
+    {text:"コイル",options:{bold:true,color:INK}},{text:"：オン/オフ（例: ポンプ）",options:{color:INK,breakLine:true}},
+    {text:" ",options:{breakLine:true,fontSize:6}},
+    {text:"レジスタ",options:{bold:true,color:INK}},{text:"：16bitの数値（例: 水位）",options:{color:INK,breakLine:true}},
+    {text:" ",options:{breakLine:true,fontSize:6}},
+    {text:"ポート",options:{bold:true,color:INK}},{text:"：502（今回 5020）",options:{color:INK}},
+  ],{x:9.2,y:3.35,w:3.3,h:2.8,isTextBox:true,margin:0,fontFace:BF,fontSize:D,lineSpacingMultiple:1.25});
+  s.addNotes("依頼側が『何番を読め/書け』と送り機器が答えるだけ。データはコイル(オンオフ)とレジスタ(数値)。ポート502、今回5020。");
 })();
 
-// ===== Slide 5: 3つの欠陥（施錠破り画像フルブリード） =====
+// ===== 5: 3つの欠陥 =====
 (function(){ const s=slide(NAVY);
-  cover(s,LOCK,0,0,SW,SH);
-  scrim(s,0,0,SW,SH,"070E18",52);
-  s.addText("ここが弱点".toUpperCase(),{x:M,y:0.42,w:12,h:0.3,isTextBox:true,margin:0,
-    fontFace:HF,fontSize:12,bold:true,color:CYBR,charSpacing:3});
-  s.addText("Modbus には 3つの構造的な欠陥がある",{x:M,y:0.72,w:12.1,h:1.0,isTextBox:true,margin:0,
-    fontFace:HF,fontSize:32,bold:true,color:WHITE});
-  const flaws=[
-    ["認証なし","相手が誰かを確かめない。到達できれば誰でも書ける。"],
-    ["暗号化なし","通信は平文。覗けば、値も命令も丸見え。"],
-    ["改ざん検知なし","正しい命令かを検証しない。偽の命令も実行する。"],
-  ];
-  const cw=3.85, gap=0.3, x0=M, y=2.4, ch=2.5;
-  flaws.forEach((f,i)=>{ const x=x0+i*(cw+gap);
-    s.addShape(p.ShapeType.roundRect,{x,y,w:cw,h:ch,rectRadius:0.09,
-      fill:{color:"0C1826",transparency:12},line:{color:"3A2130",width:1}});
-    s.addText(f[0],{x:x+0.3,y:y+0.35,w:cw-0.6,h:0.7,isTextBox:true,margin:0,fontFace:HF,fontSize:23,bold:true,color:"FF7A8E"});
-    s.addText(f[1],{x:x+0.3,y:y+1.25,w:cw-0.6,h:1.1,isTextBox:true,margin:0,fontFace:BF,fontSize:15,color:"D7E2EE",lineSpacingMultiple:1.3});
-  });
-  s.addText([
-    {text:"つまり、",options:{color:WHITE}},
-    {text:"ネットワークに入れた時点で、制御を好きに書き換えられる。",options:{bold:true,color:CYBR}},
-  ],{x:M,y:5.45,w:12.1,h:0.9,isTextBox:true,margin:0,fontFace:BF,fontSize:20,align:"center",valign:"middle"});
-  s.addNotes("Modbusの致命的な3欠陥：認証なし・暗号化なし・改ざん検知なし。ネットワークに到達できた時点で制御を好きに書き換えられる。");
+  cover(s,LOCK,0,0,SW,SH); scrim(s,0,0,SW,SH,"070E18",52);
+  s.addText("ここが弱点".toUpperCase(),{x:M,y:0.45,w:12,h:0.35,isTextBox:true,margin:0,fontFace:HF,fontSize:EB,bold:true,color:CYBR,charSpacing:3});
+  s.addText("Modbus には 3つの構造的な欠陥がある",{x:M,y:0.92,w:12.1,h:1.1,isTextBox:true,margin:0,fontFace:HF,fontSize:T,bold:true,color:WHITE});
+  const flaws=[["認証なし","誰でも書き込める"],["暗号化なし","通信は平文で丸見え"],["改ざん検知なし","偽の命令も実行する"]];
+  const cw=3.85, gap=0.3, y=2.7, ch=2.2;
+  flaws.forEach((f,i)=>{ const x=M+i*(cw+gap);
+    card(s,x,y,cw,ch,"0C1826",12,"3A2130");
+    s.addText(f[0],{x:x+0.3,y:y+0.35,w:cw-0.6,h:0.8,isTextBox:true,margin:0,fontFace:HF,fontSize:B,bold:true,color:"FF7A8E"});
+    s.addText(f[1],{x:x+0.3,y:y+1.25,w:cw-0.6,h:0.8,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:"D7E2EE",lineSpacingMultiple:1.2}); });
+  s.addText("入れた時点で、制御を好きに書き換えられる。",
+    {x:M,y:5.5,w:12.1,h:0.9,isTextBox:true,margin:0,fontFace:BF,fontSize:B,bold:true,color:CYBR,align:"center",valign:"middle"});
+  s.addNotes("3欠陥：認証なし・暗号化なし・改ざん検知なし。到達できた時点で制御を書き換えられる。");
 })();
 
-// ===== Slide 6: 読める・書ける・落とせる =====
+// ===== 6: 読める・書ける・落とせる =====
 (function(){ const s=slide(PAPER);
   eyebrow(s,"欠陥が何を招くか");
   title(s,"読める・書ける・落とせる");
-  const rows=[
-    ["読める",CY,"盗聴・偵察","水位も設定値も丸見え。工場の中身を把握される。","機密"],
-    ["書ける",DANGER,"改ざん","設定値を書き換え、安全装置を無効化 → 物理被害（溢水）。","完全性"],
-    ["落とせる",MUTED,"妨害","不正な値や大量接続で動作を乱す。","可用性"],
-  ];
-  rows.forEach((r,i)=>{ const y=2.55+i*1.25;
-    s.addShape(p.ShapeType.roundRect,{x:M,y:y,w:2.1,h:0.7,rectRadius:0.35,fill:{color:r[1]},line:{type:"none"}});
-    s.addText(r[0],{x:M,y:y,w:2.1,h:0.7,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:18,bold:true,color:WHITE});
-    arrow(s,2.95,y+0.35,3.5,y+0.35,MUTED);
-    s.addText([{text:r[2]+"  ",options:{bold:true,color:INK}},{text:r[3],options:{color:INK}}],
-      {x:3.7,y:y-0.05,w:7.6,h:0.8,isTextBox:true,margin:0,valign:"middle",fontFace:BF,fontSize:16,lineSpacingMultiple:1.15});
-    s.addText(r[4],{x:11.4,y:y,w:1.3,h:0.7,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:13,bold:true,color:r[1]});
-  });
-  s.addText("情報セキュリティの3要素（機密・完全性・可用性）が、そのまま崩れます。",
-    {x:M,y:6.45,w:12,h:0.4,isTextBox:true,margin:0,fontFace:BF,fontSize:14,color:MUTED});
-  s.addNotes("3欠陥は被害に直結。読める＝盗聴(機密)、書ける＝改ざんで物理被害(完全性)、落とせる＝妨害(可用性)。CIAがそのまま崩れる。");
+  const rows=[["読める",CY,"盗聴・偵察（機密）"],["書ける",DANGER,"改ざん → 物理被害（完全性）"],["落とせる",MUTED,"妨害（可用性）"]];
+  rows.forEach((r,i)=>{ const y=2.65+i*1.2;
+    s.addShape(p.ShapeType.roundRect,{x:M,y:y,w:2.7,h:0.8,rectRadius:0.4,fill:{color:r[1]},line:{type:"none"}});
+    s.addText(r[0],{x:M,y:y,w:2.7,h:0.8,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:B,bold:true,color:WHITE});
+    barrow(s,3.6,y+0.25,0.7,0.3,"right",MUTED);
+    s.addText(r[2],{x:4.6,y:y,w:8.0,h:0.8,isTextBox:true,margin:0,valign:"middle",fontFace:BF,fontSize:B,color:INK}); });
+  s.addText("情報セキュリティの3要素（機密・完全性・可用性）がそのまま崩れる。",
+    {x:M,y:6.4,w:12,h:0.45,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:MUTED});
+  s.addNotes("読める＝盗聴(機密)、書ける＝改ざんで物理被害(完全性)、落とせる＝妨害(可用性)。CIAがそのまま崩れる。");
 })();
 
-// ===== Slide 7: 演習の流れ =====
+// ===== 7: 演習の流れ =====
 (function(){ const s=slide(PAPER);
   eyebrow(s,"演習の流れ（CTF形式）");
-  title(s,"偵察から始め、最後はタンクをあふれさせる");
-  const steps=["1 偵察","2 盗聴","3 ポンプ奪取","4 設定改ざん","5 安全無効化","6 溢水"];
-  const n=steps.length, x0=M, y=2.8, totalW=12.1, sw=1.72, gap=(totalW-sw*n)/(n-1);
-  steps.forEach((t,i)=>{ const x=x0+i*(sw+gap); const last=i===n-1;
-    s.addShape(p.ShapeType.roundRect,{x,y,w:sw,h:1.0,rectRadius:0.14,
-      fill:{color:last?DANGER:CARD},line:{color:last?DANGER:CARDLINE,width:1}});
-    s.addText(t,{x:x,y:y,w:sw,h:1.0,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:14,bold:true,color:last?WHITE:INK});
-    if(!last){ const ax=x+sw+gap*0.15; s.addText("→",{x:ax,y:y,w:gap*0.7,h:1.0,isTextBox:true,align:"center",valign:"middle",fontFace:BF,fontSize:18,color:MUTED}); }
-  });
-  s.addText("目的達成",{x:x0+5*(sw+gap),y:y+1.02,w:sw,h:0.3,isTextBox:true,align:"center",fontFace:BF,fontSize:11,bold:true,color:DANGER});
+  title(s,"偵察から始め、最後はあふれさせる");
+  const steps=[["1","偵察"],["2","盗聴"],["3","ポンプ奪取"],["4","設定改ざん"],["5","安全無効化"],["6","溢水（目的達成）"]];
+  steps.forEach((t,i)=>{ const y=2.15+i*0.78; const last=i===5;
+    card(s,M,y,6.9,0.66,last?DANGER:CARD,0,last?DANGER:CARDLINE);
+    s.addText(t[0],{x:M+0.15,y:y,w:0.6,h:0.66,isTextBox:true,align:"center",valign:"middle",fontFace:HF,fontSize:B,bold:true,color:last?WHITE:CY});
+    s.addText(t[1],{x:M+0.85,y:y,w:5.9,h:0.66,isTextBox:true,valign:"middle",margin:0,fontFace:BF,fontSize:B,bold:true,color:last?WHITE:INK}); });
   s.addText([
-    {text:"攻撃に成功すると、制御装置が",options:{color:INK}},
-    {text:"フラグ",options:{bold:true,color:CY}},
-    {text:"をレジスタに出します。読み出して提出。",options:{color:INK,breakLine:true}},
-    {text:"設計図は渡しません。",options:{color:INK}},
-    {text:"観測して自分で当てる",options:{bold:true,color:INK}},
-    {text:" のがこの演習の面白さです。",options:{color:INK}},
-  ],{x:M,y:4.5,w:12,h:1.5,isTextBox:true,margin:0,fontFace:BF,fontSize:17,lineSpacingMultiple:1.35});
-  s.addNotes("CTF形式。偵察→盗聴→ポンプ奪取→設定改ざん→安全無効化→溢水。成功するとフラグがレジスタに出るので読んで提出。設計図は渡さず自分で当てる。");
+    {text:"成功すると制御装置が",options:{color:INK}},{text:"フラグ",options:{bold:true,color:CY}},
+    {text:"をレジスタに出す。",options:{color:INK,breakLine:true}},
+    {text:" ",options:{breakLine:true,fontSize:8}},
+    {text:"読み出して提出。設計図は渡さず、観測して自分で当てる。",options:{color:INK}},
+  ],{x:8.0,y:2.6,w:4.7,h:3.5,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:INK,lineSpacingMultiple:1.3});
+  s.addNotes("偵察→盗聴→ポンプ奪取→設定改ざん→安全無効化→溢水。成功でフラグがレジスタに出る。設計図は渡さず自分で当てる。");
 })();
 
-// ===== Slide 8: ルール =====
+// ===== 8: ルール =====
 (function(){ const s=slide(PAPER);
   eyebrow(s,"始める前に");
   title(s,"ルールと安全");
-  card(s,M,2.6,12.1,1.6,false,"FBECEE");
-  s.addText("本編は AI 禁止",{x:M+0.4,y:2.8,w:11,h:0.6,isTextBox:true,margin:0,fontFace:HF,fontSize:24,bold:true,color:DANGER});
-  s.addText("レジスタの意味を推定してあふれさせる部分は、自分で読み解くのが目的です。Wireshark の使い方や Modbus 全般の調べ物に AI を使うのは構いません。",
-    {x:M+0.4,y:3.4,w:11.3,h:0.7,isTextBox:true,margin:0,fontFace:BF,fontSize:15,color:INK,lineSpacingMultiple:1.25});
-  const bl=[
-    "詰まったら遠慮なく、司会にヒントを求めてください。",
-    "これは隔離されたネットワーク専用の演習です。渡された制御装置以外には接続しません。",
-  ];
-  bl.forEach((t,i)=>{ const y=4.7+i*0.7;
-    s.addShape(p.ShapeType.ellipse,{x:M,y:y+0.08,w:0.18,h:0.18,fill:{color:CY},line:{type:"none"}});
-    s.addText(t,{x:M+0.4,y:y-0.08,w:11.5,h:0.5,isTextBox:true,margin:0,fontFace:BF,fontSize:16,color:INK});
-  });
-  s.addNotes("本編はAI禁止（自分で読み解くのが目的。Wireshark等の調べ物は可）。詰まったら司会にヒントを。隔離ネット専用で渡した制御装置以外には触らない。");
+  card(s,M,2.7,12.1,1.7,"FBECEE",0,"F2C9CF");
+  s.addText("本編は AI 禁止",{x:M+0.4,y:2.95,w:11,h:0.6,isTextBox:true,margin:0,fontFace:HF,fontSize:B,bold:true,color:DANGER});
+  s.addText("レジスタの意味を推定する部分は自分で読み解く。Wireshark や Modbus 全般の調べ物に AI を使うのは可。",
+    {x:M+0.4,y:3.6,w:11.3,h:0.7,isTextBox:true,margin:0,fontFace:BF,fontSize:D,color:INK,lineSpacingMultiple:1.2});
+  const bl=["詰まったら司会にヒントを求める","隔離されたネットワーク専用で行う"];
+  bl.forEach((t,i)=>{ const y=4.95+i*0.8; dot(s,M,y+0.08,CY);
+    s.addText(t,{x:M+0.42,y:y-0.1,w:11.4,h:0.6,isTextBox:true,margin:0,fontFace:BF,fontSize:B,color:INK}); });
+  s.addNotes("本編はAI禁止（自分で読み解く。Wireshark等の調べ物は可）。詰まったら司会にヒント。隔離ネット専用。");
 })();
 
-// ===== Slide 9: 開始（溢水画像フルブリード・CTA） =====
+// ===== 9: 開始 =====
 (function(){ const s=slide(NAVY);
-  cover(s,HERO,0,0,SW,SH);
-  scrim(s,0,0,SW,SH,"081320",55);
-  s.addText("さあ、始めましょう".toUpperCase(),{x:M,y:0.6,w:12,h:0.3,isTextBox:true,margin:0,
-    fontFace:HF,fontSize:12,bold:true,color:CYBR,charSpacing:3});
-  s.addText("接続して、制御装置を読んでみる",{x:M,y:0.95,w:12.1,h:1.0,isTextBox:true,margin:0,
-    fontFace:HF,fontSize:32,bold:true,color:WHITE});
-  card(s,M,2.5,5.9,1.5,true,"0E2033",10);
-  s.addText("問題とフラグ提出（CTFd）",{x:M+0.35,y:2.75,w:5.2,h:0.4,isTextBox:true,margin:0,fontFace:BF,fontSize:15,bold:true,color:WHITE});
-  s.addText("http://<司会のIP>:8000",{x:M+0.35,y:3.25,w:5.2,h:0.5,isTextBox:true,margin:0,fontFace:HF,fontSize:19,bold:true,color:CYBR});
-  card(s,M+6.2,2.5,5.9,1.5,true,"0E2033",10);
-  s.addText("制御装置（攻撃対象）",{x:M+6.55,y:2.75,w:5.2,h:0.4,isTextBox:true,margin:0,fontFace:BF,fontSize:15,bold:true,color:WHITE});
-  s.addText("<司会のIP>:5020",{x:M+6.55,y:3.25,w:5.2,h:0.5,isTextBox:true,margin:0,fontFace:HF,fontSize:19,bold:true,color:CYBR});
-  s.addText("配布キットの mbclient.py で、まずは保持レジスタを読んでみましょう。",
-    {x:M,y:4.5,w:12,h:0.5,isTextBox:true,margin:0,fontFace:BF,fontSize:18,color:MUTED_D});
-  s.addShape(p.ShapeType.roundRect,{x:M,y:5.2,w:12.1,h:0.95,rectRadius:0.06,fill:{color:"05101C",transparency:8},line:{color:"24384F",width:1}});
+  cover(s,HERO,0,0,SW,SH); scrim(s,0,0,SW,SH,"081320",55);
+  s.addText("さあ、始めましょう".toUpperCase(),{x:M,y:0.6,w:12,h:0.35,isTextBox:true,margin:0,fontFace:HF,fontSize:EB,bold:true,color:CYBR,charSpacing:3});
+  s.addText("接続して、制御装置を読んでみる",{x:M,y:1.05,w:12.1,h:1.1,isTextBox:true,margin:0,fontFace:HF,fontSize:T,bold:true,color:WHITE});
+  card(s,M,2.7,5.9,1.6,"0E2033",10,"243B52");
+  s.addText("問題とフラグ提出（CTFd）",{x:M+0.35,y:2.9,w:5.2,h:0.5,isTextBox:true,margin:0,fontFace:BF,fontSize:B,bold:true,color:WHITE});
+  s.addText("http://<司会のIP>:8000",{x:M+0.35,y:3.5,w:5.3,h:0.6,isTextBox:true,margin:0,fontFace:HF,fontSize:D,bold:true,color:CYBR});
+  card(s,M+6.2,2.7,5.9,1.6,"0E2033",10,"243B52");
+  s.addText("制御装置（攻撃対象）",{x:M+6.55,y:2.9,w:5.2,h:0.5,isTextBox:true,margin:0,fontFace:BF,fontSize:B,bold:true,color:WHITE});
+  s.addText("<司会のIP>:5020",{x:M+6.55,y:3.5,w:5.3,h:0.6,isTextBox:true,margin:0,fontFace:HF,fontSize:D,bold:true,color:CYBR});
+  s.addText("mbclient.py で、まず保持レジスタを読んでみよう。",
+    {x:M,y:4.7,w:12,h:0.6,isTextBox:true,margin:0,fontFace:BF,fontSize:B,color:MUTED_D});
+  s.addShape(p.ShapeType.roundRect,{x:M,y:5.5,w:12.1,h:0.9,rectRadius:0.06,fill:{color:"05101C",transparency:8},line:{color:"24384F",width:1}});
   s.addText("python3 mbclient.py --host <IP> read-hr 0 30",
-    {x:M+0.3,y:5.2,w:11.5,h:0.95,isTextBox:true,margin:0,valign:"middle",fontFace:"Courier New",fontSize:17,color:"7BE3B0"});
-  s.addNotes("さあ接続。CTFdは司会のIP:8000、制御装置は:5020。まずmbclientで保持レジスタを読む。ここから演習(偵察)に入る。");
+    {x:M+0.3,y:5.5,w:11.5,h:0.9,isTextBox:true,margin:0,valign:"middle",fontFace:"Courier New",fontSize:D,color:"7BE3B0"});
+  s.addNotes("CTFdは司会のIP:8000、制御装置は:5020。まずmbclientで保持レジスタを読む。ここから偵察へ。");
 })();
 
 const OUT = process.env.OUT || "ot-intro.pptx";
