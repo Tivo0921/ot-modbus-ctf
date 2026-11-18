@@ -25,8 +25,8 @@
 
 ```bash
 # リポジトリを取得
-git clone <このリポジトリのURL>
-cd ws1-ctf
+git clone https://github.com/Tivo0921/ot-modbus-ctf.git
+cd ot-modbus-ctf
 
 # 1) ターミナルA: 制御装置を起動（自分の PC 内だけで待ち受け）。起動したら放置
 python3 ctf/target.py --host 127.0.0.1 --port 5020
