@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LAN実験 手順書</title>
+<style>
+  :root{
+    --bg:#0f1115; --fg:#e8eaed; --muted:#9aa0a6; --card:#1b1e24; --line:#2a2e36;
+    --accent:#d4a017; --ok:#3fb950; --warn:#e3b341; --bad:#f85149; --code:#0b0d11;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f6f7f9; --fg:#1b1e24; --muted:#5f6368; --card:#ffffff; --line:#e2e5ea;
+      --accent:#9a7407; --code:#f0f2f5;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+    line-height:1.7;padding:0 16px 80px}
+  .wrap{max-width:860px;margin:0 auto}
+  header{padding:28px 0 8px;border-bottom:2px solid var(--accent)}
+  h1{font-size:26px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:14px}
+  h2{font-size:20px;margin:34px 0 10px;padding-left:10px;border-left:4px solid var(--accent)}
+  h3{font-size:16px;margin:20px 0 6px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;margin:12px 0}
+  .concl{background:var(--card);border:1px solid var(--accent);border-left:5px solid var(--accent);
+    border-radius:10px;padding:14px 16px;margin:14px 0}
+  code,pre{font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;
+    padding:12px 14px;overflow-x:auto;font-size:13.5px;margin:8px 0}
+  code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:13px}
+  pre code{background:none;padding:0}
+  ol,ul{padding-left:22px}
+  li{margin:5px 0}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--code)}
+  .tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;margin-right:6px}
+  .t-ok{background:rgba(63,185,80,.15);color:var(--ok)}
+  .t-warn{background:rgba(227,179,65,.15);color:var(--warn)}
+  .t-bad{background:rgba(248,81,73,.15);color:var(--bad)}
+  .ip{color:var(--accent);font-weight:700}
+  .note{color:var(--muted);font-size:13px}
+  kbd{background:var(--code);border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:4px;padding:1px 6px;font-size:12px}
+  @media print{body{background:#fff;color:#000}.card,.concl{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>LAN実験 手順書（OT-CTF 第1回WS）</h1>
+  <div class="sub">オフライン閲覧用 / 作成 2026-11-11 ・ このページはネット遮断後も開けます（ローカルHTML）</div>
+</header>
+
+<div class="concl">
+  <strong>結論（この実験の目的）:</strong> 家のルータを<strong>WAN（外線）抜き</strong>で動かし、
+  Mac＋別端末が<strong>同じWi-Fiで通信できるか</strong>を本番前に1回確認する。
+  これが通れば当日も同じ構成で動く。確認するのは <span class="t-ok tag">① DHCPでIPが取れる</span>
+  <span class="t-ok tag">② 端末→Macに届く（AP隔離なし）</span> の2点だけ。
+</div>
+
+<div class="card note">
+  <strong>前提メモ（今の環境）:</strong> 自宅での現在のMac IP = <span class="ip">192.168.11.15</span>（参考値。
+  会場や別ルータでは変わるので、都度 <code>ipconfig getifaddr en0</code> で取り直す）。
+  Python = <code>/Users/shunikeda/gitClones/ot-lab/.venv/bin/python</code>。
+  プロジェクト = <code>/Users/shunikeda/gitClones/ot-lab/ws1-ctf</code>。
+</div>
+
+<h2>Phase 0 ── 既存プロセスを止める（最初に1回）</h2>
+<p>今 Claude Code が <code>127.0.0.1</code>（ローカル限定）で制御装置とウォールを動かしています。
+LAN公開に切り替えるため、まず全部止めます。<strong>自分のターミナルで</strong>:</p>
+<pre><code>pkill -f run_arena.py ; pkill -f ctf/target.py ; pkill -f wall/wall.py
+# 確認（何も出なければ停止済み）
+lsof -nP -iTCP:5020 -sTCP:LISTEN ; lsof -nP -iTCP:8090 -sTCP:LISTEN</code></pre>
+<p class="note">CTFd（Docker, ポート8000）は止めなくてOK。問題・スコアはそのまま残ります。</p>
+
+<h2>Phase 1 ── 実験A：WAN抜きでLANが機能するか</h2>
+<p class="note">ごく稀に外線が無いとDHCPを止める機種があるため、ここだけは事前確認必須。</p>
+<ol>
+  <li>ルータの <strong>WAN（外線）ケーブルを抜く</strong>（＝会場と同じ「ネット無し」を再現）。</li>
+  <li>Mac と スマホ（または別PC）を、そのルータのWi-Fiに接続。</li>
+  <li>MacのIPを調べる：<pre><code>ipconfig getifaddr en0   # 出なければ en1 も試す</code></pre></li>
+  <li>別端末から届くか確認：
+    <ul>
+      <li>ブラウザで <code>http://&lt;MacのIP&gt;:8000</code> → CTFdが見えれば成功。</li>
+      <li>別PCがあれば <code>ping &lt;MacのIP&gt;</code> が返ればAP隔離なし＝OK。</li>
+    </ul>
+  </li>
+  <li>通れば当日も同じ構成で使える。<span class="t-bad tag">NGなら</span>→ 下の「うまくいかないとき」へ。</li>
+</ol>
+
+<h2>Phase 2 ── 中央機（Mac）を LAN公開で起動</h2>
+<p>ポイントは <code>--host 0.0.0.0</code>（LAN全体から受付）。<strong>ターミナルを2枚</strong>使います。</p>
+
+<h3>ターミナル① 制御装置サーバ（4環境）</h3>
+<pre><code>cd /Users/shunikeda/gitClones/ot-lab/ws1-ctf
+/Users/shunikeda/gitClones/ot-lab/.venv/bin/python \
+  ctf/run_arena.py --count 4 --base-port 5020 --host 0.0.0.0</code></pre>
+<p class="note">起動すると「割り当て表」が出ます。そこに表示される <code>&lt;IP&gt;:5020〜5023</code> が参加者の接続先。</p>
+
+<h3>ターミナル② 水槽ウォール（大画面用ダッシュボード）</h3>
+<pre><code>cd /Users/shunikeda/gitClones/ot-lab/ws1-ctf
+/Users/shunikeda/gitClones/ot-lab/.venv/bin/python \
+  wall/wall.py --count 4 --base-port 5020 --target 127.0.0.1 --serve-port 8090</code></pre>
+<p class="note">ウォールは <code>http://&lt;MacのIP&gt;:8090</code>（Macでは <code>http://localhost:8090</code>）を全画面表示。
+Mac自身が制御装置に繋ぐので <code>--target 127.0.0.1</code> のままでOK。</p>
+
+<h3>CTFd（すでに起動中。止めた場合のみ）</h3>
+<pre><code>cd /Users/shunikeda/gitClones/ot-lab/ws1-ctf/ctf/ctfd && docker compose up -d
+# 参加者は http://&lt;MacのIP&gt;:8000</code></pre>
+
+<h2>Phase 3 ── 疎通確認</h2>
+<h3>Mac自身から（まず自分で確認）</h3>
+<pre><code># 制御装置（水位レジスタを読む）
+/Users/shunikeda/gitClones/ot-lab/.venv/bin/python \
+  ctf/toolkit/mbclient.py --host 127.0.0.1 --port 5020 read-hr 10 1
+# CTFd / ウォール
+open http://localhost:8000
+open http://localhost:8090</code></pre>
+
+<h3>参加者端末から（別のスマホ/PCで）</h3>
+<pre><code>curl http://&lt;MacのIP&gt;:8000                     # CTFdが返るか
+python3 mbclient.py --host &lt;MacのIP&gt; --port 5020 read-hr 10 1   # 制御装置に届くか</code></pre>
+<p class="note">参加者には <strong>接続先（CTFd=<code>:8000</code>／制御装置=<code>:5020〜5023</code>）</strong> と
+<strong>配布キット <code>ctf/toolkit/</code>（mbclient.py と README）</strong> だけ渡す。
+<span class="t-warn tag">制御装置のソース・設計図は渡さない。</span></p>
+
+<h2>うまくいかないとき</h2>
+<table>
+<tr><th>症状</th><th>対処</th></tr>
+<tr><td>参加者から CTFd/制御装置に届かない</td>
+    <td><strong>macOSファイアウォール</strong>が原因のことが多い。システム設定 &gt; ネットワーク &gt; ファイアウォール で
+    <code>python3</code> と <code>Docker</code> の受信を許可。隔離網なので演習中だけ<strong>一時オフ</strong>でも可（終了後に戻す）。</td></tr>
+<tr><td>mbclient が制御装置に届かない</td>
+    <td>サーバを <code>--host 0.0.0.0</code> で起動しているか。IPが正しいか（<code>ipconfig getifaddr en0</code> で再確認）。</td></tr>
+<tr><td>IPが取れない / Wi-Fi不安定</td>
+    <td>WANを抜くとDHCPが止まる機種かも（実験A）。予備＝スマホのテザリング（iPhoneは同時5台まで＝Mac＋4人が限界）。</td></tr>
+<tr><td>ping/通信が通らない</td>
+    <td>そのネットワークがAP隔離をしている。大学Wi-Fiで発生。家ルータなら通常は通る。</td></tr>
+</table>
+
+<h2>終了手順</h2>
+<pre><code># 各ターミナルで Ctrl+C（制御装置・ウォール停止）
+# CTFdも止めるなら:
+cd /Users/shunikeda/gitClones/ot-lab/ws1-ctf/ctf/ctfd && docker compose down
+# ファイアウォールを一時オフにした場合は元に戻す</code></pre>
+
+<div class="card note">
+  再表示：このファイルは <code>docs/lan-experiment-runbook.html</code>。
+  ブラウザで開き直すには Finder でダブルクリック、または <code>open docs/lan-experiment-runbook.html</code>。
+</div>
+
+</div>
+</body>
+</html>

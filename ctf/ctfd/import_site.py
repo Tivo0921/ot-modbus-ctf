@@ -27,8 +27,9 @@ def login(base, name, pw):
     h = get(base + "/challenges")
     return re.search(r'csrfNonce["\']?\s*[:=]\s*["\']([0-9a-f]+)', h).group(1)
 
-def api(base, csrf, method, path, payload):
-    req = urllib.request.Request(base + path, data=json.dumps(payload).encode(), method=method,
+def api(base, csrf, method, path, payload=None):
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(base + path, data=data, method=method,
         headers={"Content-Type":"application/json","CSRF-Token":csrf})
     try:
         with OP.open(req) as r: return r.status, json.loads(r.read().decode())
@@ -60,8 +61,29 @@ def build_content(dl_url, code):
 産業用プロトコル **Modbus/TCP** で通信します。**設計図（どの番号が何か）は教えません。**
 自分で読み書きして突き止め、最後はタンクをあふれさせるのが目標です。
 
-- 制御装置の接続先: **`<司会が伝えるIP>:5020`**
-- 問題とフラグ提出: この CTFd（上のメニューの Challenges）
+## 接続先（まずここを確認）
+
+- 制御装置: **`<司会が伝えるIP>:<司会が伝えるポート>`**
+  - **ポートは参加者ごとに違います**（5020, 5021, 5022 … のどれか）。司会が「あなたは◯◯番」と伝えます。
+  - コマンドには **必ず `--port <自分の番号>` を付けます**。
+- 問題とフラグ提出: この CTFd（上のメニューの **Challenges**）
+
+## レジスタとコイル（2種類のデータ）
+
+制御装置の中身は、**番号のついた2種類の入れ物**でできています。読み書きはどちらも番号で指定します。
+
+- **保持レジスタ (holding register)**: **16ビットの数値**を1つ入れる箱（0〜65535）。
+  水位・設定値・流量などの「数値」はここ。**文字が埋め込まれていることもあります**。→ `read-hr` / `write-hr`
+- **コイル (coil)**: **ON/OFF の1ビット**のスイッチ。ポンプの起動、安全装置の有効/無効などの「入／切」はここ。→ `read-co` / `write-co`
+
+攻撃に成功すると、制御装置が**保持レジスタの高い番号（100番台など）に文字列（フラグ）を書き込みます**。
+「レジスタに数値や文字が現れる」のを読み取って探す、という感覚です。
+
+## フラグの形式と提出
+
+- フラグは **`FLAG{{...}}`** の形です。装置内で見つけた文字列を、そのまま各問題の入力欄に貼って提出します。
+- **1問目（偵察）だけは例外**です。装置の中に文字列はありません。答えは「水位レジスタの**番号**」で、
+  それを自分で **`FLAG{{番号}}`** の形にして提出します（例: 番号が 7 なら `FLAG{{7}}`）。
 
 ## 配布ツール: mbclient.py
 
@@ -69,21 +91,26 @@ def build_content(dl_url, code):
 番号を指定して制御装置のレジスタ・コイルを読み書きします。**メモリマップは入っていません。**
 
 **▶ [mbclient.py をダウンロード]({dl_url})**（右クリックで保存、または開いて保存）
+ダウンロードフォルダに入ったら、そのフォルダへ `cd` してから実行します（インストール不要）。
 
 ### 使い方
 
-**引数の順番**（重要）:
-- `read-hr / read-co` … **1個目＝開始番号、2個目＝読む個数**
-- `write-hr` … **1個目＝レジスタ番号、2個目＝書き込む値**
-- `write-co` … **1個目＝コイル番号、2個目＝1(ON)/0(OFF)**
+- **番号は 0 から始まります**（0, 1, 2 …）。例えば `read-hr 0 30` は **0〜29番**の30個を読みます。
+- **引数の順番**（重要）:
+  - `read-hr / read-co` … **1個目＝開始番号、2個目＝読む個数**
+  - `write-hr` … **1個目＝レジスタ番号、2個目＝書き込む値**
+  - `write-co` … **1個目＝コイル番号、2個目＝1(ON)/0(OFF)**
 
 ```
-python3 mbclient.py --host <IP> read-hr 0 30     # 0番から30個 読む（保持レジスタ 0〜29）
-python3 mbclient.py --host <IP> read-hr 100 20   # 100番から20個 読む（開始が0以外の例）
-python3 mbclient.py --host <IP> read-co 0 16     # コイル 0番から16個 読む
-python3 mbclient.py --host <IP> write-co 5 1     # コイル5番 を ON(1)/OFF(0)
-python3 mbclient.py --host <IP> write-hr 11 65535 # レジスタ11番 に 65535 を書く
+# <IP> と <ポート> は司会が伝えた値に置き換える
+python3 mbclient.py --host <IP> --port <ポート> read-hr 0 30    # 0〜29番を読む
+python3 mbclient.py --host <IP> --port <ポート> read-hr 100 20  # 100番から20個（開始が0以外の例）
+python3 mbclient.py --host <IP> --port <ポート> read-co 0 16    # コイル 0〜15番
+python3 mbclient.py --host <IP> --port <ポート> write-co 5 1    # コイル5番 を ON(1)/OFF(0)
+python3 mbclient.py --host <IP> --port <ポート> write-hr 11 65535 # レジスタ11番 に 65535
 ```
+（`--port` は全員付けます。Windows ネイティブ実行では `python3` が `python` のことがあります。）
+
 値の変化（水位など）は `read-hr` を**何度も実行**して観察します。
 
 | コマンド | 意味 |
@@ -104,8 +131,13 @@ python3 mbclient.py --host <IP> write-hr 11 65535 # レジスタ11番 に 65535 
 - 攻撃に成功すると、**もっと高い番号**（100番台など）に文字列が現れます。そこを読むとフラグです。
 
 ## Wireshark で平文を見る
-1. Wireshark を起動し、ネットワーク（手元だけなら **loopback / lo0**）をキャプチャ。
-2. 表示フィルタに **`tcp.port == 5020`**（ポートが標準502でないので、右クリック→Decode As→MODBUS で解釈も可）。
+1. Wireshark を起動し、**通信が流れているインタフェースを選ぶ**:
+   - 会場では **自分の Wi-Fi**（有線なら Ethernet）＝ `192.168.x.x` のIPを持つアダプタ。
+   - 迷ったら、各アダプタ名の右の**波形が動く**方（`read-hr` 実行時にピクッと動く）を選ぶ。
+   - WSL の人は Windows 版 Wireshark で**物理 Wi-Fi/Ethernet**（無ければ `vEthernet (WSL)`）。
+   - （Mac1台で全部動かす検証時のみ loopback / lo0）
+2. 表示フィルタに **`tcp.port == <自分のポート>`**（例: `tcp.port == 5020`）。
+   ポートが標準(502)でないので、右クリック→Decode As→MODBUS で解釈も可（バイト列ペインだけでも中身は読めます）。
 3. `mbclient.py` で読み書きすると、やり取りが**平文**で見えます（認証が無いことを確認）。
 4. `read-hr 0 100` で広い範囲を読む通信を起こし、表示フィルタに **`frame contains "FLAG"`** と入れると、
    隠し文字列入りのパケットだけに絞れます。クリックして右下のバイト列(ASCII)から読み取れます。
@@ -139,9 +171,15 @@ def main():
     st, res = api(base, csrf, "POST", "/api/v1/pages",
         {"title":"はじめに","route":a.route,"content":"(準備中)",
          "draft":False,"hidden":False,"auth_required":False,"format":"markdown"})
-    if not res.get("success"):
-        print(f"[page] 作成失敗（route 重複なら作り直してください）: {res}"); sys.exit(1)
-    pid = res["data"]["id"]; print(f"[page] 作成 id={pid}")
+    if res.get("success"):
+        pid = res["data"]["id"]; print(f"[page] 作成 id={pid}")
+    else:
+        # route 重複 → 既存ページを探して更新（再実行で本文を差し替えられる）
+        _, pages = api(base, csrf, "GET", "/api/v1/pages")
+        pid = next((p["id"] for p in pages.get("data", []) if p.get("route") == a.route), None)
+        if pid is None:
+            print(f"[page] 作成失敗かつ既存も見つからず: {res}"); sys.exit(1)
+        print(f"[page] 既存を更新 id={pid}")
     # 2) mbclient.py をそのページの添付として上げる
     loc = upload_file(base, csrf, MBCLIENT, pid)
     dl = f"/files/{loc}"; print(f"[file] mbclient.py → {dl}")
